@@ -99,22 +99,41 @@ class UserbotManager:
             self.last_connection_attempt = datetime.now(timezone.utc)
             logger.info("🚀 USERBOT: Attempting to start client...")
             
-            # Start the client
-            await self.client.start()
-            logger.info("✅ USERBOT: Client started successfully")
+            # Check if we have a valid session file
+            session_path = f"{self.session_name}.session"
+            if os.path.exists(session_path):
+                logger.info(f"📁 USERBOT: Found existing session file: {session_path}")
+                try:
+                    await self.client.start()
+                    logger.info("✅ USERBOT: Client started successfully with existing session")
+                    
+                    # Verify connection
+                    logger.info("🔍 USERBOT: Verifying connection...")
+                    me = await self.client.get_me()
+                    if me:
+                        self.is_connected = True
+                        self.is_authenticated = True
+                        self.connection_retries = 0
+                        logger.info(f"✅ USERBOT: Connected as @{me.username or me.first_name} (ID: {me.id})")
+                        return True
+                    else:
+                        logger.warning("⚠️ USERBOT: Session file exists but connection failed")
+                except Exception as e:
+                    logger.warning(f"⚠️ USERBOT: Failed to use existing session: {e}")
+                    # Remove invalid session file
+                    try:
+                        os.remove(session_path)
+                        logger.info(f"🗑️ USERBOT: Removed invalid session file: {session_path}")
+                    except:
+                        pass
             
-            # Verify connection
-            logger.info("🔍 USERBOT: Verifying connection...")
-            me = await self.client.get_me()
-            if me:
-                self.is_connected = True
-                self.is_authenticated = True
-                self.connection_retries = 0
-                logger.info(f"✅ USERBOT: Connected as @{me.username or me.first_name} (ID: {me.id})")
-                return True
-            else:
-                logger.error("❌ USERBOT: Failed to get user info after connection")
-                return False
+            # If no session or session failed, we need authentication
+            logger.info("🔐 USERBOT: No valid session found - authentication required")
+            logger.warning("⚠️ USERBOT: Cannot authenticate in server environment - userbot will not work")
+            logger.info("💡 USERBOT: Please authenticate the userbot locally first, then upload the session file")
+            
+            # Don't try to authenticate in server environment
+            return False
                 
         except SessionPasswordNeeded:
             logger.error("❌ USERBOT: Two-factor authentication required - please set up 2FA")

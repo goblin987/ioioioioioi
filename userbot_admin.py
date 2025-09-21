@@ -47,6 +47,8 @@ async def handle_userbot_status(update: Update, context: ContextTypes.DEFAULT_TY
             status_text += "🟢 **Connection**: Connected\n"
         else:
             status_text += "🔴 **Connection**: Disconnected\n"
+            if config_summary['configured']:
+                status_text += "⚠️ **Issue**: Userbot needs authentication - products sent to bot chat\n"
         
         # Statistics
         status_text += f"\n📊 **Statistics**\n"

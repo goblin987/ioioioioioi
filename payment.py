@@ -1479,8 +1479,14 @@ async def _trigger_userbot_delivery(user_id: int, basket_snapshot: list, context
         from userbot_config import userbot_config
         
         # Check if userbot is configured and connected
-        if not userbot_config.is_configured() or not userbot_manager.is_connected:
-            logger.debug(f"USERBOT: Skipping delivery for user {user_id} - userbot not configured or not connected")
+        if not userbot_config.is_configured():
+            logger.info(f"🔄 USERBOT: Userbot not configured - using fallback delivery for user {user_id}")
+            await _fallback_delivery_to_bot_chat(user_id, basket_snapshot, context)
+            return
+        
+        if not userbot_manager.is_connected:
+            logger.info(f"🔄 USERBOT: Userbot not connected - using fallback delivery for user {user_id}")
+            await _fallback_delivery_to_bot_chat(user_id, basket_snapshot, context)
             return
         
         # Prepare product data for delivery
@@ -1522,11 +1528,12 @@ async def _fallback_delivery_to_bot_chat(user_id: int, basket_snapshot: list, co
         # Send fallback message
         fallback_message = (
             "🔒 **SECRET DELIVERY**\n\n"
-            "Your product is ready!\n"
-            "Due to technical issues with our secure delivery system, "
-            "your product has been sent here instead.\n\n"
-            "⚠️ **Note**: This is a temporary fallback. "
-            "Our secure delivery system will be restored soon."
+            "Your product is ready!\n\n"
+            "⚠️ **Delivery Status**: Our secure delivery system is currently unavailable. "
+            "Your product has been sent here as a temporary measure.\n\n"
+            "🔧 **Technical Note**: The userbot authentication system needs to be set up "
+            "to enable secure secret chat delivery.\n\n"
+            "✅ **Your product is safe and ready to use!**"
         )
         
         await send_message_with_retry(context.bot, chat_id, fallback_message, parse_mode='Markdown')
