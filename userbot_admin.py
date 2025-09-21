@@ -15,7 +15,7 @@ from userbot_config import userbot_config
 
 logger = logging.getLogger(__name__)
 
-async def handle_userbot_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_userbot_status(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Show userbot status and controls"""
     try:
         # Get current status
@@ -93,7 +93,7 @@ async def handle_userbot_status(update: Update, context: ContextTypes.DEFAULT_TY
         logger.error(f"❌ USERBOT ADMIN: Error showing status: {e}")
         await update.callback_query.answer("Error showing userbot status", show_alert=True)
 
-async def handle_userbot_connect(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_userbot_connect(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Connect userbot"""
     try:
         await update.callback_query.answer("Connecting userbot...")
@@ -115,7 +115,7 @@ async def handle_userbot_connect(update: Update, context: ContextTypes.DEFAULT_T
         logger.error(f"❌ USERBOT ADMIN: Error connecting: {e}")
         await update.callback_query.answer("Error connecting userbot", show_alert=True)
 
-async def handle_userbot_disconnect(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_userbot_disconnect(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Disconnect userbot"""
     try:
         await update.callback_query.answer("Disconnecting userbot...")
@@ -132,7 +132,7 @@ async def handle_userbot_disconnect(update: Update, context: ContextTypes.DEFAUL
         logger.error(f"❌ USERBOT ADMIN: Error disconnecting: {e}")
         await update.callback_query.answer("Error disconnecting userbot", show_alert=True)
 
-async def handle_userbot_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_userbot_settings(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Show userbot settings"""
     try:
         # Get current settings
@@ -171,7 +171,7 @@ async def handle_userbot_settings(update: Update, context: ContextTypes.DEFAULT_
         logger.error(f"❌ USERBOT ADMIN: Error showing settings: {e}")
         await update.callback_query.answer("Error showing settings", show_alert=True)
 
-async def handle_userbot_keywords(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_userbot_keywords(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Show and manage delivery keywords"""
     try:
         keywords = get_delivery_keywords()
@@ -207,7 +207,7 @@ async def handle_userbot_keywords(update: Update, context: ContextTypes.DEFAULT_
         logger.error(f"❌ USERBOT ADMIN: Error showing keywords: {e}")
         await update.callback_query.answer("Error showing keywords", show_alert=True)
 
-async def handle_userbot_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_userbot_stats(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Show detailed userbot statistics"""
     try:
         stats = get_userbot_stats()
@@ -248,7 +248,7 @@ async def handle_userbot_stats(update: Update, context: ContextTypes.DEFAULT_TYP
         logger.error(f"❌ USERBOT ADMIN: Error showing stats: {e}")
         await update.callback_query.answer("Error showing statistics", show_alert=True)
 
-async def handle_userbot_toggle_reconnect(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_userbot_toggle_reconnect(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Toggle auto reconnect setting"""
     try:
         current = get_userbot_setting('auto_reconnect', 'true')
@@ -268,7 +268,7 @@ async def handle_userbot_toggle_reconnect(update: Update, context: ContextTypes.
         logger.error(f"❌ USERBOT ADMIN: Error toggling reconnect: {e}")
         await update.callback_query.answer("Error updating setting", show_alert=True)
 
-async def handle_userbot_toggle_notifications(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_userbot_toggle_notifications(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Toggle delivery notifications"""
     try:
         current = get_userbot_setting('delivery_notification', 'true')
@@ -288,7 +288,7 @@ async def handle_userbot_toggle_notifications(update: Update, context: ContextTy
         logger.error(f"❌ USERBOT ADMIN: Error toggling notifications: {e}")
         await update.callback_query.answer("Error updating setting", show_alert=True)
 
-async def handle_userbot_credentials(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_userbot_credentials(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Show userbot credentials management"""
     try:
         credentials = get_userbot_credentials()
@@ -329,7 +329,7 @@ async def handle_userbot_credentials(update: Update, context: ContextTypes.DEFAU
         logger.error(f"❌ USERBOT ADMIN: Error showing credentials: {e}")
         await update.callback_query.answer("Error showing credentials", show_alert=True)
 
-async def handle_userbot_add_credentials(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_userbot_add_credentials(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Start adding userbot credentials"""
     try:
         await update.callback_query.answer("Starting credentials setup...")
@@ -361,7 +361,7 @@ async def handle_userbot_add_credentials(update: Update, context: ContextTypes.D
         logger.error(f"❌ USERBOT ADMIN: Error starting credentials setup: {e}")
         await update.callback_query.answer("Error starting setup", show_alert=True)
 
-async def handle_userbot_update_credentials(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_userbot_update_credentials(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Start updating userbot credentials"""
     try:
         await update.callback_query.answer("Starting credentials update...")
@@ -387,7 +387,7 @@ async def handle_userbot_update_credentials(update: Update, context: ContextType
         logger.error(f"❌ USERBOT ADMIN: Error starting credentials update: {e}")
         await update.callback_query.answer("Error starting update", show_alert=True)
 
-async def handle_userbot_clear_credentials(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_userbot_clear_credentials(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Clear userbot credentials"""
     try:
         await update.callback_query.answer("Clearing credentials...")
@@ -409,7 +409,7 @@ async def handle_userbot_clear_credentials(update: Update, context: ContextTypes
         logger.error(f"❌ USERBOT ADMIN: Error clearing credentials: {e}")
         await update.callback_query.answer("Error clearing credentials", show_alert=True)
 
-async def handle_userbot_test_connection(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_userbot_test_connection(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Test userbot connection"""
     try:
         await update.callback_query.answer("Testing connection...")
