@@ -94,19 +94,24 @@ class UserbotManager:
             self.last_connection_attempt = datetime.now(timezone.utc)
             logger.info("🔐 USERBOT: Starting authentication...")
             
-            # Start client - this will handle authentication if needed
-            await self.client.start()
-            
-            # Verify connection
-            me = await self.client.get_me()
-            if me:
-                self.is_connected = True
-                self.is_authenticated = True
-                self.connection_retries = 0
-                logger.info(f"✅ USERBOT: Connected as @{me.username or me.first_name}")
-                return True
-            else:
-                logger.error("❌ USERBOT: Authentication failed")
+            # Try to start client - this will handle authentication if needed
+            try:
+                await self.client.start()
+                
+                # Verify connection
+                me = await self.client.get_me()
+                if me:
+                    self.is_connected = True
+                    self.is_authenticated = True
+                    self.connection_retries = 0
+                    logger.info(f"✅ USERBOT: Connected as @{me.username or me.first_name}")
+                    return True
+                else:
+                    logger.error("❌ USERBOT: Authentication failed")
+                    return False
+            except Exception as auth_error:
+                # If authentication fails, we need to handle it through the admin panel
+                logger.info(f"🔐 USERBOT: Authentication required - {str(auth_error)}")
                 return False
                 
         except SessionPasswordNeeded:
@@ -132,8 +137,19 @@ class UserbotManager:
             logger.error(f"❌ USERBOT: Connection error: {e}")
             return False
         except Exception as e:
-            logger.error(f"❌ USERBOT: Authentication error: {e}")
-            return False
+            # Check if this is an authentication error that needs user input
+            error_str = str(e).lower()
+            if "confirmation code" in error_str or "verification code" in error_str:
+                logger.info("📱 USERBOT: Verification code required - use admin panel")
+                await self._store_auth_state("verification_code_required")
+                return False
+            elif "password" in error_str or "2fa" in error_str:
+                logger.info("🔐 USERBOT: 2FA password required - use admin panel")
+                await self._store_auth_state("2fa_required")
+                return False
+            else:
+                logger.error(f"❌ USERBOT: Authentication error: {e}")
+                return False
     
     async def disconnect(self):
         """Disconnect the userbot client"""
@@ -418,16 +434,33 @@ class UserbotManager:
                 return False
             
             logger.info("📱 USERBOT: Processing verification code...")
-            await self.client.start()
+            
+            # Create a new client with the verification code
+            from pyrogram import Client
+            temp_client = Client(
+                name=f"{self.session_name}_temp",
+                api_id=userbot_config.api_id,
+                api_hash=userbot_config.api_hash,
+                phone_number=userbot_config.phone_number,
+                workdir="."
+            )
+            
+            # Start with verification code
+            await temp_client.start(phone_code=code)
             
             # Verify connection
-            me = await self.client.get_me()
+            me = await temp_client.get_me()
             if me:
+                # Stop temp client and restart main client
+                await temp_client.stop()
+                await self.client.start()
+                
                 self.is_connected = True
                 self.is_authenticated = True
                 logger.info(f"✅ USERBOT: Authenticated as @{me.username or me.first_name}")
                 return True
             else:
+                await temp_client.stop()
                 logger.error("❌ USERBOT: Authentication failed")
                 return False
                 
@@ -443,16 +476,33 @@ class UserbotManager:
                 return False
             
             logger.info("🔐 USERBOT: Processing 2FA password...")
-            await self.client.start()
+            
+            # Create a new client with the 2FA password
+            from pyrogram import Client
+            temp_client = Client(
+                name=f"{self.session_name}_temp",
+                api_id=userbot_config.api_id,
+                api_hash=userbot_config.api_hash,
+                phone_number=userbot_config.phone_number,
+                workdir="."
+            )
+            
+            # Start with 2FA password
+            await temp_client.start(password=password)
             
             # Verify connection
-            me = await self.client.get_me()
+            me = await temp_client.get_me()
             if me:
+                # Stop temp client and restart main client
+                await temp_client.stop()
+                await self.client.start()
+                
                 self.is_connected = True
                 self.is_authenticated = True
                 logger.info(f"✅ USERBOT: Authenticated as @{me.username or me.first_name}")
                 return True
             else:
+                await temp_client.stop()
                 logger.error("❌ USERBOT: 2FA authentication failed")
                 return False
                 

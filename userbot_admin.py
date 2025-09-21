@@ -53,6 +53,8 @@ async def handle_userbot_status(update: Update, context: ContextTypes.DEFAULT_TY
                 if auth_state:
                     if auth_state['auth_step'] == 'phone_code_invalid':
                         status_text += "📱 **Issue**: Invalid verification code - try again\n"
+                    elif auth_state['auth_step'] == 'verification_code_required':
+                        status_text += "📱 **Issue**: Verification code required - check your phone\n"
                     elif auth_state['auth_step'] == '2fa_required':
                         status_text += "🔐 **Issue**: 2FA password required\n"
                     elif auth_state['auth_step'] == 'session_expired':
@@ -84,6 +86,8 @@ async def handle_userbot_status(update: Update, context: ContextTypes.DEFAULT_TY
                 auth_state = get_userbot_auth_state(1)  # Admin user ID
                 if auth_state:
                     if auth_state['auth_step'] == 'phone_code_invalid':
+                        keyboard.append([InlineKeyboardButton("📱 Enter Verification Code", callback_data="userbot_enter_verification_code")])
+                    elif auth_state['auth_step'] == 'verification_code_required':
                         keyboard.append([InlineKeyboardButton("📱 Enter Verification Code", callback_data="userbot_enter_verification_code")])
                     elif auth_state['auth_step'] == '2fa_required':
                         keyboard.append([InlineKeyboardButton("🔐 Enter 2FA Password", callback_data="userbot_enter_2fa_password")])

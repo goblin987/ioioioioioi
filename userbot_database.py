@@ -222,7 +222,7 @@ def log_userbot_activity(activity_type: str, user_id: int = None, details: str =
         conn = sqlite3.connect(DATABASE_PATH)
         c = conn.cursor()
         c.execute('''INSERT INTO userbot_activity_log 
-                    (activity_type, user_id, details, timestamp) 
+                    (activity_type, user_id, details, created_at) 
                     VALUES (?, ?, ?, ?)''', (
             activity_type,
             user_id,
