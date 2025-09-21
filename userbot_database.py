@@ -1,6 +1,6 @@
 import sqlite3
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -92,6 +92,16 @@ def init_userbot_tables():
             temp_data TEXT DEFAULT NULL,
             created_at TEXT NOT NULL,
             expires_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+        )''')
+        
+        # Userbot activity log table
+        c.execute('''CREATE TABLE IF NOT EXISTS userbot_activity_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            activity_type TEXT NOT NULL,
+            details TEXT DEFAULT NULL,
+            created_at TEXT NOT NULL,
             FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
         )''')
         
@@ -312,26 +322,42 @@ def get_userbot_credentials() -> dict:
 
 def set_userbot_credentials(api_id: int, api_hash: str, phone_number: str, session_name: str = 'userbot_session') -> bool:
     """Set userbot credentials in database"""
-    try:
-        from utils import DATABASE_PATH
-        conn = sqlite3.connect(DATABASE_PATH)
-        c = conn.cursor()
-        c.execute('''INSERT OR REPLACE INTO userbot_credentials 
-                    (api_id, api_hash, phone_number, session_name, is_configured, created_at, updated_at) 
-                    VALUES (?, ?, ?, ?, 1, ?, ?)''', (
-            api_id, api_hash, phone_number, session_name,
-            datetime.now(timezone.utc).isoformat(),
-            datetime.now(timezone.utc).isoformat()
-        ))
-        conn.commit()
-        conn.close()
-        
-        logger.info(f"✅ USERBOT: Credentials updated successfully")
-        return True
-        
-    except Exception as e:
-        logger.error(f"❌ USERBOT: Error setting credentials: {e}")
-        return False
+    max_retries = 3
+    retry_delay = 1
+    
+    for attempt in range(max_retries):
+        try:
+            from utils import DATABASE_PATH
+            conn = sqlite3.connect(DATABASE_PATH, timeout=10.0)
+            c = conn.cursor()
+            c.execute('''INSERT OR REPLACE INTO userbot_credentials 
+                        (api_id, api_hash, phone_number, session_name, is_configured, created_at, updated_at) 
+                        VALUES (?, ?, ?, ?, 1, ?, ?)''', (
+                api_id, api_hash, phone_number, session_name,
+                datetime.now(timezone.utc).isoformat(),
+                datetime.now(timezone.utc).isoformat()
+            ))
+            conn.commit()
+            conn.close()
+            
+            logger.info(f"✅ USERBOT: Credentials updated successfully")
+            return True
+            
+        except sqlite3.OperationalError as e:
+            if "database is locked" in str(e) and attempt < max_retries - 1:
+                logger.warning(f"⚠️ USERBOT: Database locked, retrying in {retry_delay}s (attempt {attempt + 1}/{max_retries})")
+                import time
+                time.sleep(retry_delay)
+                retry_delay *= 2  # Exponential backoff
+                continue
+            else:
+                logger.error(f"❌ USERBOT: Error setting credentials: {e}")
+                return False
+        except Exception as e:
+            logger.error(f"❌ USERBOT: Error setting credentials: {e}")
+            return False
+    
+    return False
 
 def clear_userbot_credentials() -> bool:
     """Clear userbot credentials from database"""
@@ -352,31 +378,47 @@ def clear_userbot_credentials() -> bool:
 
 def set_userbot_auth_state(user_id: int, auth_step: str, temp_data: str = None, expires_minutes: int = 30) -> bool:
     """Set userbot authentication state"""
-    try:
-        from utils import DATABASE_PATH
-        conn = sqlite3.connect(DATABASE_PATH)
-        c = conn.cursor()
-        
-        # Clear existing auth state for user
-        c.execute("DELETE FROM userbot_auth_state WHERE user_id = ?", (user_id,))
-        
-        # Insert new auth state
-        expires_at = datetime.now(timezone.utc) + timedelta(minutes=expires_minutes)
-        c.execute('''INSERT INTO userbot_auth_state 
-                    (user_id, auth_step, temp_data, created_at, expires_at) 
-                    VALUES (?, ?, ?, ?, ?)''', (
-            user_id, auth_step, temp_data,
-            datetime.now(timezone.utc).isoformat(),
-            expires_at.isoformat()
-        ))
-        conn.commit()
-        conn.close()
-        
-        return True
-        
-    except Exception as e:
-        logger.error(f"❌ USERBOT: Error setting auth state: {e}")
-        return False
+    max_retries = 3
+    retry_delay = 1
+    
+    for attempt in range(max_retries):
+        try:
+            from utils import DATABASE_PATH
+            conn = sqlite3.connect(DATABASE_PATH, timeout=10.0)
+            c = conn.cursor()
+            
+            # Clear existing auth state for user
+            c.execute("DELETE FROM userbot_auth_state WHERE user_id = ?", (user_id,))
+            
+            # Insert new auth state
+            expires_at = datetime.now(timezone.utc) + timedelta(minutes=expires_minutes)
+            c.execute('''INSERT INTO userbot_auth_state 
+                        (user_id, auth_step, temp_data, created_at, expires_at) 
+                        VALUES (?, ?, ?, ?, ?)''', (
+                user_id, auth_step, temp_data,
+                datetime.now(timezone.utc).isoformat(),
+                expires_at.isoformat()
+            ))
+            conn.commit()
+            conn.close()
+            
+            return True
+            
+        except sqlite3.OperationalError as e:
+            if "database is locked" in str(e) and attempt < max_retries - 1:
+                logger.warning(f"⚠️ USERBOT: Database locked, retrying in {retry_delay}s (attempt {attempt + 1}/{max_retries})")
+                import time
+                time.sleep(retry_delay)
+                retry_delay *= 2  # Exponential backoff
+                continue
+            else:
+                logger.error(f"❌ USERBOT: Error setting auth state: {e}")
+                return False
+        except Exception as e:
+            logger.error(f"❌ USERBOT: Error setting auth state: {e}")
+            return False
+    
+    return False
 
 def get_userbot_auth_state(user_id: int) -> dict:
     """Get userbot authentication state"""
