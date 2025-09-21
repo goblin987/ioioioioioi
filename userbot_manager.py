@@ -9,8 +9,7 @@ from pyrogram.errors import (
     PhoneCodeInvalid, 
     PhoneNumberInvalid,
     FloodWait,
-    AuthKeyUnregistered,
-    ConnectionError as PyrogramConnectionError
+    AuthKeyUnregistered
 )
 
 from userbot_config import userbot_config
@@ -124,7 +123,7 @@ class UserbotManager:
         except AuthKeyUnregistered:
             logger.error("❌ USERBOT: Session expired - please re-authenticate")
             return False
-        except PyrogramConnectionError as e:
+        except (OSError, ConnectionError) as e:
             logger.error(f"❌ USERBOT: Connection error: {e}")
             return False
         except Exception as e:
