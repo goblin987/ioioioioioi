@@ -341,6 +341,11 @@ def callback_query_router(func):
                 "userbot_stats": userbot_admin.handle_userbot_stats,
                 "userbot_toggle_reconnect": userbot_admin.handle_userbot_toggle_reconnect,
                 "userbot_toggle_notifications": userbot_admin.handle_userbot_toggle_notifications,
+                "userbot_credentials": userbot_admin.handle_userbot_credentials,
+                "userbot_add_credentials": userbot_admin.handle_userbot_add_credentials,
+                "userbot_update_credentials": userbot_admin.handle_userbot_update_credentials,
+                "userbot_clear_credentials": userbot_admin.handle_userbot_clear_credentials,
+                "userbot_test_connection": userbot_admin.handle_userbot_test_connection,
             }
 
             target_func = KNOWN_HANDLERS.get(command)
@@ -474,6 +479,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         'userbot_stats': userbot_admin.handle_userbot_stats,
         'userbot_toggle_reconnect': userbot_admin.handle_userbot_toggle_reconnect,
         'userbot_toggle_notifications': userbot_admin.handle_userbot_toggle_notifications,
+        'userbot_credentials': userbot_admin.handle_userbot_credentials,
+        'userbot_add_credentials': userbot_admin.handle_userbot_add_credentials,
+        'userbot_update_credentials': userbot_admin.handle_userbot_update_credentials,
+        'userbot_clear_credentials': userbot_admin.handle_userbot_clear_credentials,
+        'userbot_test_connection': userbot_admin.handle_userbot_test_connection,
+        
+        # Userbot Credentials Message States
+        'awaiting_userbot_api_id': userbot_admin.handle_userbot_api_id_message,
+        'awaiting_userbot_api_hash': userbot_admin.handle_userbot_api_hash_message,
+        'awaiting_userbot_phone': userbot_admin.handle_userbot_phone_message,
+        'awaiting_userbot_photo_code': userbot_admin.handle_userbot_photo_code_message,
+        'awaiting_userbot_2fa_code': userbot_admin.handle_userbot_2fa_code_message,
     }
 
     # Check if user is banned before processing ANY message (including state handlers)

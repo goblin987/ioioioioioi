@@ -19,26 +19,33 @@ class UserbotConfig:
         self.secret_chat_ttl: int = 86400  # 24 hours
         self.delivery_keywords: list = ["hello", "hi", "start", "product", "delivery"]
         
-        self._load_from_env()
+        self._load_from_database()
     
-    def _load_from_env(self):
-        """Load configuration from environment variables"""
+    def _load_from_database(self):
+        """Load configuration from database"""
         try:
-            # Required userbot credentials
-            self.api_id = int(os.getenv('USERBOT_API_ID', 0))
-            self.api_hash = os.getenv('USERBOT_API_HASH', '')
-            self.phone_number = os.getenv('USERBOT_PHONE_NUMBER', '')
+            from userbot_database import get_userbot_credentials, get_userbot_setting
             
-            # Optional settings
-            self.session_name = os.getenv('USERBOT_SESSION_NAME', 'userbot_session')
-            self.enabled = os.getenv('USERBOT_ENABLED', 'false').lower() == 'true'
-            self.auto_reconnect = os.getenv('USERBOT_AUTO_RECONNECT', 'true').lower() == 'true'
-            self.max_retries = int(os.getenv('USERBOT_MAX_RETRIES', '3'))
-            self.retry_delay = int(os.getenv('USERBOT_RETRY_DELAY', '5'))
-            self.secret_chat_ttl = int(os.getenv('USERBOT_SECRET_CHAT_TTL', '86400'))
+            # Load credentials from database
+            credentials = get_userbot_credentials()
+            if credentials:
+                self.api_id = credentials.get('api_id')
+                self.api_hash = credentials.get('api_hash')
+                self.phone_number = credentials.get('phone_number')
+                self.session_name = credentials.get('session_name', 'userbot_session')
+                self.enabled = credentials.get('is_configured', False)
+            else:
+                # Fallback to environment variables if no database credentials
+                self._load_from_env_fallback()
+            
+            # Load settings from database
+            self.auto_reconnect = get_userbot_setting('auto_reconnect', 'true').lower() == 'true'
+            self.max_retries = int(get_userbot_setting('max_retries', '3'))
+            self.retry_delay = int(get_userbot_setting('retry_delay', '5'))
+            self.secret_chat_ttl = int(get_userbot_setting('secret_chat_ttl', '86400'))
             
             # Delivery keywords
-            keywords_str = os.getenv('USERBOT_DELIVERY_KEYWORDS', 'hello,hi,start,product,delivery')
+            keywords_str = get_userbot_setting('delivery_keywords', 'hello,hi,start,product,delivery')
             self.delivery_keywords = [kw.strip().lower() for kw in keywords_str.split(',')]
             
             # Validate required settings
@@ -48,6 +55,22 @@ class UserbotConfig:
                 
         except Exception as e:
             logger.error(f"❌ USERBOT: Error loading configuration: {e}")
+            self.enabled = False
+    
+    def _load_from_env_fallback(self):
+        """Fallback to environment variables if no database credentials"""
+        try:
+            # Required userbot credentials
+            self.api_id = int(os.getenv('USERBOT_API_ID', 0))
+            self.api_hash = os.getenv('USERBOT_API_HASH', '')
+            self.phone_number = os.getenv('USERBOT_PHONE_NUMBER', '')
+            
+            # Optional settings
+            self.session_name = os.getenv('USERBOT_SESSION_NAME', 'userbot_session')
+            self.enabled = os.getenv('USERBOT_ENABLED', 'false').lower() == 'true'
+            
+        except Exception as e:
+            logger.error(f"❌ USERBOT: Error loading from environment fallback: {e}")
             self.enabled = False
     
     def _validate_credentials(self) -> bool:
@@ -90,6 +113,10 @@ class UserbotConfig:
             'delivery_keywords': self.delivery_keywords
         }
     
+    def reload_from_database(self):
+        """Reload configuration from database"""
+        self._load_from_database()
+    
     def log_config_status(self):
         """Log the current configuration status"""
         if self.enabled:
@@ -100,7 +127,7 @@ class UserbotConfig:
                 logger.info(f"⏰ USERBOT: Secret chat TTL: {self.secret_chat_ttl}s")
                 logger.info(f"🔑 USERBOT: Delivery keywords: {', '.join(self.delivery_keywords)}")
             else:
-                logger.warning("⚠️ USERBOT: Configuration incomplete - check environment variables")
+                logger.warning("⚠️ USERBOT: Configuration incomplete - check database credentials")
         else:
             logger.info("ℹ️ USERBOT: Disabled in configuration")
 

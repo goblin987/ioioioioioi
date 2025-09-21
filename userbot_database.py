@@ -71,6 +71,29 @@ def init_userbot_tables():
             updated_at TEXT NOT NULL
         )''')
         
+        # Userbot credentials table
+        c.execute('''CREATE TABLE IF NOT EXISTS userbot_credentials (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            api_id INTEGER UNIQUE NOT NULL,
+            api_hash TEXT NOT NULL,
+            phone_number TEXT NOT NULL,
+            session_name TEXT DEFAULT 'userbot_session',
+            is_configured BOOLEAN DEFAULT 0,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )''')
+        
+        # Userbot authentication state table
+        c.execute('''CREATE TABLE IF NOT EXISTS userbot_auth_state (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            auth_step TEXT NOT NULL,
+            temp_data TEXT DEFAULT NULL,
+            created_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+        )''')
+        
         # Insert default settings
         default_settings = [
             ('enabled', 'false'),
@@ -252,4 +275,130 @@ def cleanup_old_deliveries(days: int = 30) -> bool:
         
     except Exception as e:
         logger.error(f"❌ USERBOT: Error cleaning up deliveries: {e}")
+        return False
+
+def get_userbot_credentials() -> dict:
+    """Get userbot credentials from database"""
+    try:
+        conn = sqlite3.connect('bot_database.db')
+        c = conn.cursor()
+        c.execute("SELECT api_id, api_hash, phone_number, session_name, is_configured FROM userbot_credentials ORDER BY updated_at DESC LIMIT 1")
+        result = c.fetchone()
+        conn.close()
+        
+        if result:
+            return {
+                'api_id': result[0],
+                'api_hash': result[1],
+                'phone_number': result[2],
+                'session_name': result[3],
+                'is_configured': bool(result[4])
+            }
+        return {}
+        
+    except Exception as e:
+        logger.error(f"❌ USERBOT: Error getting credentials: {e}")
+        return {}
+
+def set_userbot_credentials(api_id: int, api_hash: str, phone_number: str, session_name: str = 'userbot_session') -> bool:
+    """Set userbot credentials in database"""
+    try:
+        conn = sqlite3.connect('bot_database.db')
+        c = conn.cursor()
+        c.execute('''INSERT OR REPLACE INTO userbot_credentials 
+                    (api_id, api_hash, phone_number, session_name, is_configured, created_at, updated_at) 
+                    VALUES (?, ?, ?, ?, 1, ?, ?)''', (
+            api_id, api_hash, phone_number, session_name,
+            datetime.now(timezone.utc).isoformat(),
+            datetime.now(timezone.utc).isoformat()
+        ))
+        conn.commit()
+        conn.close()
+        
+        logger.info(f"✅ USERBOT: Credentials updated successfully")
+        return True
+        
+    except Exception as e:
+        logger.error(f"❌ USERBOT: Error setting credentials: {e}")
+        return False
+
+def clear_userbot_credentials() -> bool:
+    """Clear userbot credentials from database"""
+    try:
+        conn = sqlite3.connect('bot_database.db')
+        c = conn.cursor()
+        c.execute("DELETE FROM userbot_credentials")
+        conn.commit()
+        conn.close()
+        
+        logger.info(f"✅ USERBOT: Credentials cleared")
+        return True
+        
+    except Exception as e:
+        logger.error(f"❌ USERBOT: Error clearing credentials: {e}")
+        return False
+
+def set_userbot_auth_state(user_id: int, auth_step: str, temp_data: str = None, expires_minutes: int = 30) -> bool:
+    """Set userbot authentication state"""
+    try:
+        conn = sqlite3.connect('bot_database.db')
+        c = conn.cursor()
+        
+        # Clear existing auth state for user
+        c.execute("DELETE FROM userbot_auth_state WHERE user_id = ?", (user_id,))
+        
+        # Insert new auth state
+        expires_at = datetime.now(timezone.utc) + timedelta(minutes=expires_minutes)
+        c.execute('''INSERT INTO userbot_auth_state 
+                    (user_id, auth_step, temp_data, created_at, expires_at) 
+                    VALUES (?, ?, ?, ?, ?)''', (
+            user_id, auth_step, temp_data,
+            datetime.now(timezone.utc).isoformat(),
+            expires_at.isoformat()
+        ))
+        conn.commit()
+        conn.close()
+        
+        return True
+        
+    except Exception as e:
+        logger.error(f"❌ USERBOT: Error setting auth state: {e}")
+        return False
+
+def get_userbot_auth_state(user_id: int) -> dict:
+    """Get userbot authentication state"""
+    try:
+        conn = sqlite3.connect('bot_database.db')
+        c = conn.cursor()
+        c.execute('''SELECT auth_step, temp_data, expires_at 
+                    FROM userbot_auth_state 
+                    WHERE user_id = ? AND expires_at > datetime('now')''', (user_id,))
+        result = c.fetchone()
+        conn.close()
+        
+        if result:
+            return {
+                'auth_step': result[0],
+                'temp_data': result[1],
+                'expires_at': result[2]
+            }
+        return {}
+        
+    except Exception as e:
+        logger.error(f"❌ USERBOT: Error getting auth state: {e}")
+        return {}
+
+def clear_userbot_auth_state(user_id: int) -> bool:
+    """Clear userbot authentication state"""
+    try:
+        conn = sqlite3.connect('bot_database.db')
+        c = conn.cursor()
+        c.execute("DELETE FROM userbot_auth_state WHERE user_id = ?", (user_id,))
+        conn.commit()
+        conn.close()
+        
+        return True
+        
+    except Exception as e:
+        logger.error(f"❌ USERBOT: Error clearing auth state: {e}")
         return False
