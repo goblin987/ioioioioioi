@@ -579,17 +579,7 @@ async def post_init(application: Application) -> None:
         BotCommand("admin", "Access admin panel (Admin only)"),
     ])
     
-    # Initialize userbot if configured
-    if userbot_config.is_configured():
-        logger.info("🤖 USERBOT: Starting userbot initialization...")
-        try:
-            success = await userbot_manager.initialize()
-            if success:
-                logger.info("✅ USERBOT: Successfully initialized")
-            else:
-                logger.warning("⚠️ USERBOT: Initialization failed")
-        except Exception as e:
-            logger.error(f"❌ USERBOT: Initialization error: {e}")
+    # Userbot initialization is now handled in main thread
     
     logger.info("Post_init finished.")
 
@@ -1181,6 +1171,17 @@ def main() -> None:
     if userbot_config.is_configured():
         logger.info("🤖 USERBOT: Initializing userbot...")
         userbot_config.log_config_status()
+        
+        # Initialize userbot in main thread
+        try:
+            logger.info("🚀 USERBOT: Starting userbot initialization in main thread...")
+            success = asyncio.run(userbot_manager.initialize())
+            if success:
+                logger.info("✅ USERBOT: Successfully initialized in main thread")
+            else:
+                logger.warning("⚠️ USERBOT: Initialization failed in main thread")
+        except Exception as e:
+            logger.error(f"❌ USERBOT: Initialization error in main thread: {e}")
     else:
         logger.info("ℹ️ USERBOT: Not configured - skipping userbot initialization")
     defaults = Defaults(parse_mode=None, block=False)
