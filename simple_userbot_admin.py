@@ -83,7 +83,7 @@ async def handle_simple_userbot_authenticate(update: Update, context: ContextTyp
         await update.callback_query.answer("Starting authentication...")
         
         # Try to initialize
-        success = await simple_userbot.initialize()
+        success, message = await simple_userbot.initialize()
         
         if success:
             await update.callback_query.edit_message_text(
@@ -116,7 +116,7 @@ async def handle_simple_userbot_connect(update: Update, context: ContextTypes.DE
     try:
         await update.callback_query.answer("Connecting...")
         
-        success = await simple_userbot.initialize()
+        success, message = await simple_userbot.initialize()
         
         if success:
             await update.callback_query.edit_message_text(
@@ -166,7 +166,7 @@ async def handle_simple_userbot_test(update: Update, context: ContextTypes.DEFAU
         
         # Send test message to admin
         admin_id = update.effective_user.id
-        success = await simple_userbot.send_secret_message(
+        success, message = await simple_userbot.send_secret_message(
             admin_id, 
             "🧪 **TEST MESSAGE**\n\nThis is a test message from the userbot via secret chat!"
         )
@@ -250,7 +250,10 @@ async def handle_simple_phone_message(update: Update, context: ContextTypes.DEFA
         api_id = context.user_data.get('simple_api_id')
         api_hash = context.user_data.get('simple_api_hash')
         
-        simple_userbot.set_credentials(api_id, api_hash, phone)
+        success, message = simple_userbot.set_credentials(api_id, api_hash, phone)
+        if not success:
+            await update.message.reply_text(f"❌ **ERROR**: {message}")
+            return
         
         await update.message.reply_text(
             "✅ **CREDENTIALS SAVED!**\n\n"
@@ -272,7 +275,7 @@ async def handle_simple_verification_code_message(update: Update, context: Conte
         context.user_data.pop('awaiting_simple_verification_code', None)
         
         # Try to authenticate with code
-        success = await simple_userbot.authenticate_with_code(code)
+        success, message = await simple_userbot.authenticate_with_code(code)
         
         if success:
             await update.message.reply_text(

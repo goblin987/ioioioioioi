@@ -21,12 +21,12 @@ from pyrogram.errors import (
 
 logger = logging.getLogger(__name__)
 
-class SimpleUserbot:
+class SecureUserbot:
     def __init__(self):
         self.client = None
         self.is_connected = False
         self.is_authenticated = False
-        self.session_name = "simple_userbot"
+        self.session_name = "secure_userbot"
         self.api_id = None
         self.api_hash = None
         self.phone_number = None
@@ -432,4 +432,4 @@ class SimpleUserbot:
         }
 
 # Global instance
-simple_userbot = SimpleUserbot()
+secure_userbot = SecureUserbot()

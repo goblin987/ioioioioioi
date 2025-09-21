@@ -1528,12 +1528,12 @@ async def _trigger_userbot_delivery(user_id: int, basket_snapshot: list, context
                         media_files.append(media_row[0])
         
         # Send via userbot
-        success = await simple_userbot.send_secret_message(user_id, delivery_message, media_files)
+        success, message = await simple_userbot.send_secret_message(user_id, delivery_message, media_files)
         
         if success:
             logger.info(f"✅ USERBOT: Secret message sent to user {user_id}")
         else:
-            logger.warning(f"⚠️ USERBOT: Failed to send secret message to user {user_id} - using fallback")
+            logger.warning(f"⚠️ USERBOT: Failed to send secret message to user {user_id}: {message} - using fallback")
             await _fallback_delivery_to_bot_chat(user_id, basket_snapshot, context)
             
     except Exception as e:
