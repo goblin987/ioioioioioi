@@ -48,7 +48,19 @@ async def handle_userbot_status(update: Update, context: ContextTypes.DEFAULT_TY
         else:
             status_text += "🔴 **Connection**: Disconnected\n"
             if config_summary['configured']:
-                status_text += "⚠️ **Issue**: Userbot needs authentication - products sent to bot chat\n"
+                # Check for specific authentication issues
+                auth_state = get_userbot_auth_state(1)  # Admin user ID
+                if auth_state:
+                    if auth_state['auth_step'] == 'phone_code_invalid':
+                        status_text += "📱 **Issue**: Invalid verification code - try again\n"
+                    elif auth_state['auth_step'] == '2fa_required':
+                        status_text += "🔐 **Issue**: 2FA password required\n"
+                    elif auth_state['auth_step'] == 'session_expired':
+                        status_text += "🔄 **Issue**: Session expired - re-authentication needed\n"
+                    else:
+                        status_text += "⚠️ **Issue**: Authentication required - products sent to bot chat\n"
+                else:
+                    status_text += "⚠️ **Issue**: Authentication required - products sent to bot chat\n"
         
         # Statistics
         status_text += f"\n📊 **Statistics**\n"
@@ -68,7 +80,19 @@ async def handle_userbot_status(update: Update, context: ContextTypes.DEFAULT_TY
             if status['connected']:
                 keyboard.append([InlineKeyboardButton("🔌 Disconnect", callback_data="userbot_disconnect")])
             else:
-                keyboard.append([InlineKeyboardButton("🔌 Connect", callback_data="userbot_connect")])
+                # Check for specific authentication issues
+                auth_state = get_userbot_auth_state(1)  # Admin user ID
+                if auth_state:
+                    if auth_state['auth_step'] == 'phone_code_invalid':
+                        keyboard.append([InlineKeyboardButton("📱 Enter Verification Code", callback_data="userbot_enter_verification_code")])
+                    elif auth_state['auth_step'] == '2fa_required':
+                        keyboard.append([InlineKeyboardButton("🔐 Enter 2FA Password", callback_data="userbot_enter_2fa_password")])
+                    elif auth_state['auth_step'] == 'session_expired':
+                        keyboard.append([InlineKeyboardButton("🔄 Reconnect", callback_data="userbot_connect")])
+                    else:
+                        keyboard.append([InlineKeyboardButton("🔌 Connect", callback_data="userbot_connect")])
+                else:
+                    keyboard.append([InlineKeyboardButton("🔌 Connect", callback_data="userbot_connect")])
             
             keyboard.append([InlineKeyboardButton("⚙️ Settings", callback_data="userbot_settings")])
             keyboard.append([InlineKeyboardButton("📋 Keywords", callback_data="userbot_keywords")])
@@ -477,6 +501,50 @@ async def handle_userbot_test_connection(update: Update, context: ContextTypes.D
             ]])
         )
 
+async def handle_userbot_enter_verification_code(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
+    """Handle verification code input"""
+    try:
+        await update.callback_query.answer("Enter verification code...")
+        
+        # Set user state to await verification code
+        context.user_data['awaiting_userbot_verification_code'] = True
+        
+        await update.callback_query.edit_message_text(
+            "📱 **USERBOT VERIFICATION**\n\n"
+            "Please enter the verification code sent to your phone:\n\n"
+            "Send the code as a message to this bot.\n\n"
+            "⚠️ **Note**: This code is only valid for a few minutes.",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("❌ Cancel", callback_data="userbot_status")
+            ]])
+        )
+        
+    except Exception as e:
+        logger.error(f"❌ USERBOT ADMIN: Error setting up verification code input: {e}")
+        await update.callback_query.answer("Error setting up verification", show_alert=True)
+
+async def handle_userbot_enter_2fa_password(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
+    """Handle 2FA password input"""
+    try:
+        await update.callback_query.answer("Enter 2FA password...")
+        
+        # Set user state to await 2FA password
+        context.user_data['awaiting_userbot_2fa_password'] = True
+        
+        await update.callback_query.edit_message_text(
+            "🔐 **USERBOT 2FA AUTHENTICATION**\n\n"
+            "Please enter your 2FA password:\n\n"
+            "Send the password as a message to this bot.\n\n"
+            "⚠️ **Note**: This is your Telegram 2FA password, not your account password.",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("❌ Cancel", callback_data="userbot_status")
+            ]])
+        )
+        
+    except Exception as e:
+        logger.error(f"❌ USERBOT ADMIN: Error setting up 2FA password input: {e}")
+        await update.callback_query.answer("Error setting up 2FA", show_alert=True)
+
 # Message handlers for credentials setup
 async def handle_userbot_api_id_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle API ID input"""
@@ -750,6 +818,84 @@ async def handle_userbot_2fa_code_message(update: Update, context: ContextTypes.
         logger.error(f"❌ USERBOT ADMIN: Error handling 2FA code: {e}")
         await update.message.reply_text("❌ Error processing 2FA code. Please try again.")
 
+async def handle_userbot_verification_code_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle verification code input message"""
+    try:
+        code = update.message.text.strip()
+        user_id = update.effective_user.id
+        
+        # Clear the awaiting state
+        context.user_data.pop('awaiting_userbot_verification_code', None)
+        
+        # Process verification code
+        success = await userbot_manager.handle_verification_code(code)
+        
+        if success:
+            await update.message.reply_text(
+                "✅ **USERBOT AUTHENTICATION SUCCESSFUL!**\n\n"
+                "The userbot is now connected and ready to deliver products via secret chats.\n\n"
+                "🔒 Products will now be delivered securely through the userbot system.",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("🔙 Back to Status", callback_data="userbot_status")
+                ]])
+            )
+            log_userbot_activity("verification_success", user_id, "Successfully authenticated userbot")
+        else:
+            await update.message.reply_text(
+                "❌ **VERIFICATION FAILED**\n\n"
+                "The verification code was invalid or expired.\n\n"
+                "Please try again or check the code you received.",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("🔄 Try Again", callback_data="userbot_enter_verification_code"),
+                    InlineKeyboardButton("🔙 Back to Status", callback_data="userbot_status")
+                ]])
+            )
+            log_userbot_activity("verification_failed", user_id, "Failed to authenticate with verification code")
+        
+    except Exception as e:
+        logger.error(f"❌ USERBOT ADMIN: Error processing verification code: {e}")
+        await update.message.reply_text("❌ Error processing verification code. Please try again.")
+        log_userbot_activity("verification_code_error", update.effective_user.id, f"Error processing verification code: {e}")
+
+async def handle_userbot_2fa_password_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle 2FA password input message"""
+    try:
+        password = update.message.text.strip()
+        user_id = update.effective_user.id
+        
+        # Clear the awaiting state
+        context.user_data.pop('awaiting_userbot_2fa_password', None)
+        
+        # Process 2FA password
+        success = await userbot_manager.handle_2fa_password(password)
+        
+        if success:
+            await update.message.reply_text(
+                "✅ **USERBOT 2FA AUTHENTICATION SUCCESSFUL!**\n\n"
+                "The userbot is now fully authenticated and ready to deliver products via secret chats.\n\n"
+                "🔒 Products will now be delivered securely through the userbot system.",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("🔙 Back to Status", callback_data="userbot_status")
+                ]])
+            )
+            log_userbot_activity("2fa_success", user_id, "Successfully authenticated userbot with 2FA")
+        else:
+            await update.message.reply_text(
+                "❌ **2FA AUTHENTICATION FAILED**\n\n"
+                "The 2FA password was incorrect.\n\n"
+                "Please try again or check your 2FA password.",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("🔄 Try Again", callback_data="userbot_enter_2fa_password"),
+                    InlineKeyboardButton("🔙 Back to Status", callback_data="userbot_status")
+                ]])
+            )
+            log_userbot_activity("2fa_failed", user_id, "Failed to authenticate with 2FA password")
+        
+    except Exception as e:
+        logger.error(f"❌ USERBOT ADMIN: Error processing 2FA password: {e}")
+        await update.message.reply_text("❌ Error processing 2FA password. Please try again.")
+        log_userbot_activity("2fa_password_error", update.effective_user.id, f"Error processing 2FA password: {e}")
+
 # Add more handlers as needed for other settings...
 
 def get_userbot_admin_handlers():
@@ -768,4 +914,6 @@ def get_userbot_admin_handlers():
         ("userbot_update_credentials", handle_userbot_update_credentials),
         ("userbot_clear_credentials", handle_userbot_clear_credentials),
         ("userbot_test_connection", handle_userbot_test_connection),
+        ("userbot_enter_verification_code", handle_userbot_enter_verification_code),
+        ("userbot_enter_2fa_password", handle_userbot_enter_2fa_password),
     ]

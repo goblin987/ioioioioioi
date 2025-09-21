@@ -36,10 +36,7 @@ class UserbotManager:
             return False
         
         try:
-            logger.info("🚀 USERBOT: Initializing client...")
-            logger.info(f"📱 USERBOT: Using session: {userbot_config.session_name}")
-            logger.info(f"🔑 USERBOT: API ID: {userbot_config.api_id}")
-            logger.info(f"📞 USERBOT: Phone: {userbot_config.phone_number}")
+            logger.info("🚀 USERBOT: Initializing...")
             
             # Create Pyrogram client
             self.client = Client(
@@ -49,16 +46,14 @@ class UserbotManager:
                 phone_number=userbot_config.phone_number,
                 workdir="."
             )
-            logger.info("✅ USERBOT: Client created successfully")
             
             # Set up event handlers
             self._setup_handlers()
-            logger.info("✅ USERBOT: Event handlers set up")
             
             # Attempt connection
             success = await self._connect()
             if success:
-                logger.info("✅ USERBOT: Successfully initialized and connected")
+                logger.info("✅ USERBOT: Ready")
                 return True
             else:
                 logger.error("❌ USERBOT: Failed to initialize")
@@ -97,49 +92,30 @@ class UserbotManager:
         
         try:
             self.last_connection_attempt = datetime.now(timezone.utc)
-            logger.info("🚀 USERBOT: Attempting to start client...")
+            logger.info("🔐 USERBOT: Starting authentication...")
             
-            # Check if we have a valid session file
-            session_path = f"{self.session_name}.session"
-            if os.path.exists(session_path):
-                logger.info(f"📁 USERBOT: Found existing session file: {session_path}")
-                try:
-                    await self.client.start()
-                    logger.info("✅ USERBOT: Client started successfully with existing session")
-                    
-                    # Verify connection
-                    logger.info("🔍 USERBOT: Verifying connection...")
-                    me = await self.client.get_me()
-                    if me:
-                        self.is_connected = True
-                        self.is_authenticated = True
-                        self.connection_retries = 0
-                        logger.info(f"✅ USERBOT: Connected as @{me.username or me.first_name} (ID: {me.id})")
-                        return True
-                    else:
-                        logger.warning("⚠️ USERBOT: Session file exists but connection failed")
-                except Exception as e:
-                    logger.warning(f"⚠️ USERBOT: Failed to use existing session: {e}")
-                    # Remove invalid session file
-                    try:
-                        os.remove(session_path)
-                        logger.info(f"🗑️ USERBOT: Removed invalid session file: {session_path}")
-                    except:
-                        pass
+            # Start client - this will handle authentication if needed
+            await self.client.start()
             
-            # If no session or session failed, we need authentication
-            logger.info("🔐 USERBOT: No valid session found - authentication required")
-            logger.warning("⚠️ USERBOT: Cannot authenticate in server environment - userbot will not work")
-            logger.info("💡 USERBOT: Please authenticate the userbot locally first, then upload the session file")
-            
-            # Don't try to authenticate in server environment
-            return False
+            # Verify connection
+            me = await self.client.get_me()
+            if me:
+                self.is_connected = True
+                self.is_authenticated = True
+                self.connection_retries = 0
+                logger.info(f"✅ USERBOT: Connected as @{me.username or me.first_name}")
+                return True
+            else:
+                logger.error("❌ USERBOT: Authentication failed")
+                return False
                 
         except SessionPasswordNeeded:
-            logger.error("❌ USERBOT: Two-factor authentication required - please set up 2FA")
+            logger.info("🔐 USERBOT: 2FA required - use admin panel to enter password")
+            await self._store_auth_state("2fa_required")
             return False
         except PhoneCodeInvalid:
-            logger.error("❌ USERBOT: Invalid phone code")
+            logger.info("📱 USERBOT: Invalid verification code - try again")
+            await self._store_auth_state("phone_code_invalid")
             return False
         except PhoneNumberInvalid:
             logger.error("❌ USERBOT: Invalid phone number")
@@ -149,13 +125,14 @@ class UserbotManager:
             await asyncio.sleep(e.value)
             return await self._connect()
         except AuthKeyUnregistered:
-            logger.error("❌ USERBOT: Session expired - please re-authenticate")
+            logger.info("🔄 USERBOT: Session expired - re-authentication needed")
+            await self._store_auth_state("session_expired")
             return False
         except (OSError, ConnectionError) as e:
             logger.error(f"❌ USERBOT: Connection error: {e}")
             return False
         except Exception as e:
-            logger.error(f"❌ USERBOT: Unexpected connection error: {e}")
+            logger.error(f"❌ USERBOT: Authentication error: {e}")
             return False
     
     async def disconnect(self):
@@ -423,6 +400,64 @@ class UserbotManager:
             
         except Exception as e:
             logger.error(f"❌ USERBOT: Error during force reconnection: {e}")
+            return False
+    
+    async def _store_auth_state(self, state: str):
+        """Store authentication state for admin panel"""
+        try:
+            from userbot_database import set_userbot_auth_state
+            await set_userbot_auth_state(1, state, None)  # Use admin user ID 1
+        except Exception as e:
+            logger.error(f"❌ USERBOT: Error storing auth state: {e}")
+    
+    async def handle_verification_code(self, code: str) -> bool:
+        """Handle verification code from admin panel"""
+        try:
+            if not self.client:
+                logger.error("❌ USERBOT: No client available")
+                return False
+            
+            logger.info("📱 USERBOT: Processing verification code...")
+            await self.client.start()
+            
+            # Verify connection
+            me = await self.client.get_me()
+            if me:
+                self.is_connected = True
+                self.is_authenticated = True
+                logger.info(f"✅ USERBOT: Authenticated as @{me.username or me.first_name}")
+                return True
+            else:
+                logger.error("❌ USERBOT: Authentication failed")
+                return False
+                
+        except Exception as e:
+            logger.error(f"❌ USERBOT: Error handling verification code: {e}")
+            return False
+    
+    async def handle_2fa_password(self, password: str) -> bool:
+        """Handle 2FA password from admin panel"""
+        try:
+            if not self.client:
+                logger.error("❌ USERBOT: No client available")
+                return False
+            
+            logger.info("🔐 USERBOT: Processing 2FA password...")
+            await self.client.start()
+            
+            # Verify connection
+            me = await self.client.get_me()
+            if me:
+                self.is_connected = True
+                self.is_authenticated = True
+                logger.info(f"✅ USERBOT: Authenticated as @{me.username or me.first_name}")
+                return True
+            else:
+                logger.error("❌ USERBOT: 2FA authentication failed")
+                return False
+                
+        except Exception as e:
+            logger.error(f"❌ USERBOT: Error handling 2FA password: {e}")
             return False
 
 # Global userbot manager instance

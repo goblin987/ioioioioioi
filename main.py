@@ -491,6 +491,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         'awaiting_userbot_phone': userbot_admin.handle_userbot_phone_message,
         'awaiting_userbot_photo_code': userbot_admin.handle_userbot_photo_code_message,
         'awaiting_userbot_2fa_code': userbot_admin.handle_userbot_2fa_code_message,
+        'awaiting_userbot_verification_code': userbot_admin.handle_userbot_verification_code_message,
+        'awaiting_userbot_2fa_password': userbot_admin.handle_userbot_2fa_password_message,
     }
 
     # Check if user is banned before processing ANY message (including state handlers)
@@ -1179,23 +1181,21 @@ def main() -> None:
     
     # Initialize userbot if configured
     if userbot_config.is_configured():
-        logger.info("🤖 USERBOT: Initializing userbot...")
-        userbot_config.log_config_status()
+        logger.info("🤖 USERBOT: Initializing...")
         
         # Initialize userbot in main thread
         try:
-            logger.info("🚀 USERBOT: Starting userbot initialization in main thread...")
             success = asyncio.run(userbot_manager.initialize())
             if success:
-                logger.info("✅ USERBOT: Successfully initialized in main thread")
+                logger.info("✅ USERBOT: Ready")
                 # Schedule periodic health checks
                 asyncio.run(_schedule_userbot_health_checks())
             else:
-                logger.warning("⚠️ USERBOT: Initialization failed in main thread")
+                logger.warning("⚠️ USERBOT: Initialization failed")
         except Exception as e:
-            logger.error(f"❌ USERBOT: Initialization error in main thread: {e}")
+            logger.error(f"❌ USERBOT: Initialization error: {e}")
     else:
-        logger.info("ℹ️ USERBOT: Not configured - skipping userbot initialization")
+        logger.info("ℹ️ USERBOT: Not configured")
     defaults = Defaults(parse_mode=None, block=False)
     app_builder = ApplicationBuilder().token(TOKEN).defaults(defaults).job_queue(JobQueue())
     app_builder.post_init(post_init)
