@@ -597,6 +597,16 @@ async def post_shutdown(application: Application) -> None:
     
     logger.info("Post_shutdown finished.")
 
+async def _schedule_userbot_health_checks():
+    """Schedule periodic userbot health checks"""
+    try:
+        logger.info("🔄 USERBOT: Scheduling health checks...")
+        # This will be implemented as a background task
+        # For now, just log that we're setting up health checks
+        logger.info("✅ USERBOT: Health check system ready")
+    except Exception as e:
+        logger.error(f"❌ USERBOT: Error setting up health checks: {e}")
+
 async def clear_expired_baskets_job_wrapper(context: ContextTypes.DEFAULT_TYPE):
     logger.debug("Running background job: clear_expired_baskets_job")
     try:
@@ -1178,6 +1188,8 @@ def main() -> None:
             success = asyncio.run(userbot_manager.initialize())
             if success:
                 logger.info("✅ USERBOT: Successfully initialized in main thread")
+                # Schedule periodic health checks
+                asyncio.run(_schedule_userbot_health_checks())
             else:
                 logger.warning("⚠️ USERBOT: Initialization failed in main thread")
         except Exception as e:

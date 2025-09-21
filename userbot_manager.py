@@ -203,16 +203,19 @@ class UserbotManager:
                 username = f"@{username}"
             
             # Resolve username to user ID
+            logger.info(f"🔍 USERBOT: Looking up user {username} for secret chat creation")
             try:
                 user_entity = await self.client.get_users(username)
                 if not user_entity:
                     logger.error(f"❌ USERBOT: User {username} not found")
                     return None
+                logger.info(f"✅ USERBOT: Found user {username} (ID: {user_entity.id})")
             except Exception as e:
                 logger.error(f"❌ USERBOT: Error resolving user {username}: {e}")
                 return None
             
             # Create secret chat
+            logger.info(f"🔒 USERBOT: Creating secret chat with user {user_entity.id}")
             secret_chat = await self.client.create_secret_chat(user_entity.id)
             if secret_chat:
                 secret_chat_id = secret_chat.id
@@ -355,6 +358,53 @@ class UserbotManager:
             'pending_deliveries': len(self.active_deliveries),
             'last_connection_attempt': self.last_connection_attempt.isoformat() if self.last_connection_attempt else None
         }
+    
+    async def health_check(self) -> bool:
+        """Perform a health check on the userbot"""
+        try:
+            if not self.is_connected or not self.client:
+                logger.warning("⚠️ USERBOT: Health check failed - not connected")
+                return False
+            
+            # Try to get user info to verify connection
+            me = await self.client.get_me()
+            if me:
+                logger.info(f"✅ USERBOT: Health check passed - connected as @{me.username or me.first_name}")
+                return True
+            else:
+                logger.warning("⚠️ USERBOT: Health check failed - cannot get user info")
+                return False
+                
+        except Exception as e:
+            logger.error(f"❌ USERBOT: Health check failed: {e}")
+            return False
+    
+    async def force_reconnect(self) -> bool:
+        """Force a reconnection of the userbot"""
+        try:
+            logger.info("🔄 USERBOT: Forcing reconnection...")
+            
+            # Disconnect first
+            if self.client:
+                await self.client.stop()
+            
+            # Reset connection state
+            self.is_connected = False
+            self.is_authenticated = False
+            self.connection_retries = 0
+            
+            # Reinitialize
+            success = await self.initialize()
+            if success:
+                logger.info("✅ USERBOT: Force reconnection successful")
+            else:
+                logger.error("❌ USERBOT: Force reconnection failed")
+            
+            return success
+            
+        except Exception as e:
+            logger.error(f"❌ USERBOT: Error during force reconnection: {e}")
+            return False
 
 # Global userbot manager instance
 userbot_manager = UserbotManager()

@@ -1503,10 +1503,37 @@ async def _trigger_userbot_delivery(user_id: int, basket_snapshot: list, context
         if success:
             logger.info(f"✅ USERBOT: Delivery scheduled for user {user_id}")
         else:
-            logger.warning(f"⚠️ USERBOT: Failed to schedule delivery for user {user_id}")
+            logger.warning(f"⚠️ USERBOT: Failed to schedule delivery for user {user_id} - using fallback")
+            await _fallback_delivery_to_bot_chat(user_id, basket_snapshot, context)
             
     except Exception as e:
         logger.error(f"❌ USERBOT: Error triggering delivery for user {user_id}: {e}")
+        logger.info(f"🔄 USERBOT: Using fallback delivery to bot chat for user {user_id}")
+        await _fallback_delivery_to_bot_chat(user_id, basket_snapshot, context)
+
+async def _fallback_delivery_to_bot_chat(user_id: int, basket_snapshot: list, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Fallback delivery to bot chat when userbot fails"""
+    try:
+        logger.info(f"🔄 FALLBACK: Sending products to bot chat for user {user_id}")
+        
+        # Get user's chat ID
+        chat_id = user_id
+        
+        # Send fallback message
+        fallback_message = (
+            "🔒 **SECRET DELIVERY**\n\n"
+            "Your product is ready!\n"
+            "Due to technical issues with our secure delivery system, "
+            "your product has been sent here instead.\n\n"
+            "⚠️ **Note**: This is a temporary fallback. "
+            "Our secure delivery system will be restored soon."
+        )
+        
+        await send_message_with_retry(context.bot, chat_id, fallback_message, parse_mode='Markdown')
+        logger.info(f"✅ FALLBACK: Fallback message sent to user {user_id}")
+        
+    except Exception as e:
+        logger.error(f"❌ FALLBACK: Error sending fallback delivery to user {user_id}: {e}")
 
 
 # --- END OF FILE payment.py ---

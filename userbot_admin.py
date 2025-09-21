@@ -421,22 +421,59 @@ async def handle_userbot_test_connection(update: Update, context: ContextTypes.D
             await update.callback_query.answer("❌ Userbot not configured", show_alert=True)
             return
         
+        # Show testing message
+        await update.callback_query.edit_message_text(
+            "🔄 USERBOT: Testing connection...\n\n"
+            "Please wait while we check the userbot status.",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("⏳ Testing...", callback_data="userbot_test_connection")
+            ]])
+        )
+        
         # Test connection
+        logger.info("🔍 USERBOT: Admin testing connection...")
         success = await userbot_manager.initialize()
         
         if success:
-            await update.callback_query.answer("✅ Connection test successful!")
-            log_userbot_activity("connection_tested", update.effective_user.id, "Admin tested userbot connection")
+            # Perform additional health check
+            health_ok = await userbot_manager.health_check()
+            
+            if health_ok:
+                status_text = "✅ USERBOT: Connection test successful!\n\n"
+                status_text += "The userbot is working properly and can deliver products.\n"
+                status_text += "Secret chat creation and product delivery should work correctly."
+            else:
+                status_text = "⚠️ USERBOT: Connection established but health check failed!\n\n"
+                status_text += "The userbot connected but may not be fully functional.\n"
+                status_text += "Please check the logs for more details."
+            
+            await update.callback_query.edit_message_text(
+                status_text,
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("🔙 Back", callback_data="userbot_status")
+                ]])
+            )
+            log_userbot_activity("connection_tested", update.effective_user.id, "Admin tested userbot connection - success")
         else:
-            await update.callback_query.answer("❌ Connection test failed", show_alert=True)
+            await update.callback_query.edit_message_text(
+                "❌ USERBOT: Connection test failed!\n\n"
+                "The userbot could not connect to Telegram.\n"
+                "Please check the credentials and try again.",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("🔙 Back", callback_data="userbot_status")
+                ]])
+            )
             log_userbot_activity("connection_test_failed", update.effective_user.id, "Admin connection test failed")
-        
-        # Refresh status
-        await handle_userbot_status(update, context)
         
     except Exception as e:
         logger.error(f"❌ USERBOT ADMIN: Error testing connection: {e}")
-        await update.callback_query.answer("Error testing connection", show_alert=True)
+        await update.callback_query.edit_message_text(
+            f"❌ Error testing connection: {str(e)}\n\n"
+            "Please check the logs for more details.",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("🔙 Back", callback_data="userbot_status")
+            ]])
+        )
 
 # Message handlers for credentials setup
 async def handle_userbot_api_id_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
