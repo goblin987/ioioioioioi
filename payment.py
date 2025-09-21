@@ -1470,46 +1470,70 @@ async def handle_cancel_crypto_payment(update: Update, context: ContextTypes.DEF
     await query.answer()
 
 
-# --- Userbot Integration ---
+# --- Simple Userbot Integration ---
 async def _trigger_userbot_delivery(user_id: int, basket_snapshot: list, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Trigger userbot delivery for completed purchase"""
     try:
         # Import here to avoid circular imports
-        from userbot_manager import userbot_manager
-        from userbot_config import userbot_config
+        from simple_userbot import simple_userbot
         
-        # Check if userbot is configured and connected
-        if not userbot_config.is_configured():
-            logger.info(f"🔄 USERBOT: Userbot not configured - using fallback delivery for user {user_id}")
-            await _fallback_delivery_to_bot_chat(user_id, basket_snapshot, context)
-            return
-        
-        if not userbot_manager.is_connected:
+        # Check if userbot is connected
+        if not simple_userbot.is_connected:
             logger.info(f"🔄 USERBOT: Userbot not connected - using fallback delivery for user {user_id}")
             await _fallback_delivery_to_bot_chat(user_id, basket_snapshot, context)
             return
         
-        # Prepare product data for delivery
-        product_data = {
-            'user_id': user_id,
-            'order_id': f"ORDER_{user_id}_{int(datetime.now(timezone.utc).timestamp())}",
-            'product_name': basket_snapshot[0]['product_name'] if len(basket_snapshot) == 1 else f"{len(basket_snapshot)} items",
-            'product_type': basket_snapshot[0]['product_type'] if basket_snapshot else 'Unknown',
-            'city': basket_snapshot[0]['city'] if basket_snapshot else 'Unknown',
-            'district': basket_snapshot[0]['district'] if basket_snapshot else 'Unknown',
-            'price': sum(float(item['price']) for item in basket_snapshot),
-            'size': basket_snapshot[0]['size'] if basket_snapshot else 'N/A',
-            'delivery_type': 'default',
-            'has_media': any(item.get('has_media', False) for item in basket_snapshot),
-            'media_files': []
-        }
-        
-        # Schedule delivery
-        success = await userbot_manager.schedule_delivery(user_id, product_data)
-        if success:
-            logger.info(f"✅ USERBOT: Delivery scheduled for user {user_id}")
+        # Prepare delivery message
+        if len(basket_snapshot) == 1:
+            product_name = basket_snapshot[0]['product_name']
+            product_type = basket_snapshot[0]['product_type']
+            city = basket_snapshot[0]['city']
+            district = basket_snapshot[0]['district']
+            size = basket_snapshot[0]['size']
         else:
-            logger.warning(f"⚠️ USERBOT: Failed to schedule delivery for user {user_id} - using fallback")
+            product_name = f"{len(basket_snapshot)} items"
+            product_type = "Multiple"
+            city = basket_snapshot[0]['city'] if basket_snapshot else 'Unknown'
+            district = basket_snapshot[0]['district'] if basket_snapshot else 'Unknown'
+            size = 'N/A'
+        
+        total_price = sum(float(item['price']) for item in basket_snapshot)
+        
+        # Create delivery message
+        delivery_message = (
+            f"🔒 **SECRET DELIVERY**\n\n"
+            f"**Product**: {product_name}\n"
+            f"**Type**: {product_type}\n"
+            f"**Location**: {city}, {district}\n"
+            f"**Size**: {size}\n"
+            f"**Price**: {total_price:.2f} EUR\n\n"
+            f"✅ **Your product is ready!**\n"
+            f"🔐 **Delivered via secure secret chat**"
+        )
+        
+        # Get media files
+        media_files = []
+        for item in basket_snapshot:
+            if item.get('has_media'):
+                # Get media files for this product
+                from utils import get_db_connection
+                conn = get_db_connection()
+                c = conn.cursor()
+                c.execute("SELECT file_path FROM product_media WHERE product_id = ?", (item['product_id'],))
+                media_data = c.fetchall()
+                conn.close()
+                
+                for media_row in media_data:
+                    if os.path.exists(media_row[0]):
+                        media_files.append(media_row[0])
+        
+        # Send via userbot
+        success = await simple_userbot.send_secret_message(user_id, delivery_message, media_files)
+        
+        if success:
+            logger.info(f"✅ USERBOT: Secret message sent to user {user_id}")
+        else:
+            logger.warning(f"⚠️ USERBOT: Failed to send secret message to user {user_id} - using fallback")
             await _fallback_delivery_to_bot_chat(user_id, basket_snapshot, context)
             
     except Exception as e:
