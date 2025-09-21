@@ -7,7 +7,8 @@ logger = logging.getLogger(__name__)
 def init_userbot_tables():
     """Initialize userbot-related database tables"""
     try:
-        conn = sqlite3.connect('bot_database.db')
+        from utils import DATABASE_PATH
+        conn = sqlite3.connect(DATABASE_PATH)
         c = conn.cursor()
         
         # Userbot secret chats table
@@ -122,7 +123,8 @@ def init_userbot_tables():
 def get_userbot_setting(setting_name: str, default_value: str = None) -> str:
     """Get a userbot setting value"""
     try:
-        conn = sqlite3.connect('bot_database.db')
+        from utils import DATABASE_PATH
+        conn = sqlite3.connect(DATABASE_PATH)
         c = conn.cursor()
         c.execute("SELECT setting_value FROM userbot_settings WHERE setting_name = ?", (setting_name,))
         result = c.fetchone()
@@ -137,7 +139,8 @@ def get_userbot_setting(setting_name: str, default_value: str = None) -> str:
 def set_userbot_setting(setting_name: str, setting_value: str) -> bool:
     """Set a userbot setting value"""
     try:
-        conn = sqlite3.connect('bot_database.db')
+        from utils import DATABASE_PATH
+        conn = sqlite3.connect(DATABASE_PATH)
         c = conn.cursor()
         c.execute('''INSERT OR REPLACE INTO userbot_settings (setting_name, setting_value, updated_at) 
                     VALUES (?, ?, ?)''', (setting_name, setting_value, datetime.now(timezone.utc).isoformat()))
@@ -154,7 +157,8 @@ def set_userbot_setting(setting_name: str, setting_value: str) -> bool:
 def get_delivery_keywords() -> list:
     """Get active delivery keywords"""
     try:
-        conn = sqlite3.connect('bot_database.db')
+        from utils import DATABASE_PATH
+        conn = sqlite3.connect(DATABASE_PATH)
         c = conn.cursor()
         c.execute("SELECT keyword FROM userbot_delivery_keywords WHERE is_active = 1")
         results = c.fetchall()
@@ -169,7 +173,8 @@ def get_delivery_keywords() -> list:
 def add_delivery_keyword(keyword: str) -> bool:
     """Add a new delivery keyword"""
     try:
-        conn = sqlite3.connect('bot_database.db')
+        from utils import DATABASE_PATH
+        conn = sqlite3.connect(DATABASE_PATH)
         c = conn.cursor()
         c.execute('''INSERT OR IGNORE INTO userbot_delivery_keywords (keyword, created_at) 
                     VALUES (?, ?)''', (keyword.lower().strip(), datetime.now(timezone.utc).isoformat()))
@@ -186,7 +191,8 @@ def add_delivery_keyword(keyword: str) -> bool:
 def remove_delivery_keyword(keyword: str) -> bool:
     """Remove a delivery keyword"""
     try:
-        conn = sqlite3.connect('bot_database.db')
+        from utils import DATABASE_PATH
+        conn = sqlite3.connect(DATABASE_PATH)
         c = conn.cursor()
         c.execute("UPDATE userbot_delivery_keywords SET is_active = 0 WHERE keyword = ?", (keyword.lower().strip(),))
         conn.commit()
@@ -202,7 +208,8 @@ def remove_delivery_keyword(keyword: str) -> bool:
 def log_userbot_activity(activity_type: str, user_id: int = None, details: str = None) -> bool:
     """Log userbot activity"""
     try:
-        conn = sqlite3.connect('bot_database.db')
+        from utils import DATABASE_PATH
+        conn = sqlite3.connect(DATABASE_PATH)
         c = conn.cursor()
         c.execute('''INSERT INTO userbot_activity_log 
                     (activity_type, user_id, details, timestamp) 
@@ -224,7 +231,8 @@ def log_userbot_activity(activity_type: str, user_id: int = None, details: str =
 def get_userbot_stats() -> dict:
     """Get userbot statistics"""
     try:
-        conn = sqlite3.connect('bot_database.db')
+        from utils import DATABASE_PATH
+        conn = sqlite3.connect(DATABASE_PATH)
         c = conn.cursor()
         
         # Get secret chat count
@@ -262,7 +270,8 @@ def get_userbot_stats() -> dict:
 def cleanup_old_deliveries(days: int = 30) -> bool:
     """Clean up old delivery records"""
     try:
-        conn = sqlite3.connect('bot_database.db')
+        from utils import DATABASE_PATH
+        conn = sqlite3.connect(DATABASE_PATH)
         c = conn.cursor()
         c.execute('''DELETE FROM userbot_deliveries 
                     WHERE delivered_at < datetime('now', '-{} days')'''.format(days))
@@ -280,7 +289,8 @@ def cleanup_old_deliveries(days: int = 30) -> bool:
 def get_userbot_credentials() -> dict:
     """Get userbot credentials from database"""
     try:
-        conn = sqlite3.connect('bot_database.db')
+        from utils import DATABASE_PATH
+        conn = sqlite3.connect(DATABASE_PATH)
         c = conn.cursor()
         c.execute("SELECT api_id, api_hash, phone_number, session_name, is_configured FROM userbot_credentials ORDER BY updated_at DESC LIMIT 1")
         result = c.fetchone()
@@ -303,7 +313,8 @@ def get_userbot_credentials() -> dict:
 def set_userbot_credentials(api_id: int, api_hash: str, phone_number: str, session_name: str = 'userbot_session') -> bool:
     """Set userbot credentials in database"""
     try:
-        conn = sqlite3.connect('bot_database.db')
+        from utils import DATABASE_PATH
+        conn = sqlite3.connect(DATABASE_PATH)
         c = conn.cursor()
         c.execute('''INSERT OR REPLACE INTO userbot_credentials 
                     (api_id, api_hash, phone_number, session_name, is_configured, created_at, updated_at) 
@@ -325,7 +336,8 @@ def set_userbot_credentials(api_id: int, api_hash: str, phone_number: str, sessi
 def clear_userbot_credentials() -> bool:
     """Clear userbot credentials from database"""
     try:
-        conn = sqlite3.connect('bot_database.db')
+        from utils import DATABASE_PATH
+        conn = sqlite3.connect(DATABASE_PATH)
         c = conn.cursor()
         c.execute("DELETE FROM userbot_credentials")
         conn.commit()
@@ -341,7 +353,8 @@ def clear_userbot_credentials() -> bool:
 def set_userbot_auth_state(user_id: int, auth_step: str, temp_data: str = None, expires_minutes: int = 30) -> bool:
     """Set userbot authentication state"""
     try:
-        conn = sqlite3.connect('bot_database.db')
+        from utils import DATABASE_PATH
+        conn = sqlite3.connect(DATABASE_PATH)
         c = conn.cursor()
         
         # Clear existing auth state for user
@@ -368,7 +381,8 @@ def set_userbot_auth_state(user_id: int, auth_step: str, temp_data: str = None, 
 def get_userbot_auth_state(user_id: int) -> dict:
     """Get userbot authentication state"""
     try:
-        conn = sqlite3.connect('bot_database.db')
+        from utils import DATABASE_PATH
+        conn = sqlite3.connect(DATABASE_PATH)
         c = conn.cursor()
         c.execute('''SELECT auth_step, temp_data, expires_at 
                     FROM userbot_auth_state 
@@ -391,7 +405,8 @@ def get_userbot_auth_state(user_id: int) -> dict:
 def clear_userbot_auth_state(user_id: int) -> bool:
     """Clear userbot authentication state"""
     try:
-        conn = sqlite3.connect('bot_database.db')
+        from utils import DATABASE_PATH
+        conn = sqlite3.connect(DATABASE_PATH)
         c = conn.cursor()
         c.execute("DELETE FROM userbot_auth_state WHERE user_id = ?", (user_id,))
         conn.commit()
