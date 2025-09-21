@@ -37,6 +37,9 @@ class UserbotManager:
         
         try:
             logger.info("🚀 USERBOT: Initializing client...")
+            logger.info(f"📱 USERBOT: Using session: {userbot_config.session_name}")
+            logger.info(f"🔑 USERBOT: API ID: {userbot_config.api_id}")
+            logger.info(f"📞 USERBOT: Phone: {userbot_config.phone_number}")
             
             # Create Pyrogram client
             self.client = Client(
@@ -46,9 +49,11 @@ class UserbotManager:
                 phone_number=userbot_config.phone_number,
                 workdir="."
             )
+            logger.info("✅ USERBOT: Client created successfully")
             
             # Set up event handlers
             self._setup_handlers()
+            logger.info("✅ USERBOT: Event handlers set up")
             
             # Attempt connection
             success = await self._connect()
@@ -60,7 +65,7 @@ class UserbotManager:
                 return False
                 
         except Exception as e:
-            logger.error(f"❌ USERBOT: Initialization error: {e}")
+            logger.error(f"❌ USERBOT: Initialization error: {e}", exc_info=True)
             return False
     
     def _setup_handlers(self):
@@ -87,21 +92,25 @@ class UserbotManager:
     async def _connect(self) -> bool:
         """Establish connection to Telegram"""
         if not self.client:
+            logger.error("❌ USERBOT: No client available for connection")
             return False
         
         try:
             self.last_connection_attempt = datetime.now(timezone.utc)
+            logger.info("🚀 USERBOT: Attempting to start client...")
             
             # Start the client
             await self.client.start()
+            logger.info("✅ USERBOT: Client started successfully")
             
             # Verify connection
+            logger.info("🔍 USERBOT: Verifying connection...")
             me = await self.client.get_me()
             if me:
                 self.is_connected = True
                 self.is_authenticated = True
                 self.connection_retries = 0
-                logger.info(f"✅ USERBOT: Connected as @{me.username or me.first_name}")
+                logger.info(f"✅ USERBOT: Connected as @{me.username or me.first_name} (ID: {me.id})")
                 return True
             else:
                 logger.error("❌ USERBOT: Failed to get user info after connection")
