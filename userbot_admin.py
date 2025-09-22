@@ -589,8 +589,8 @@ async def handle_userbot_message(update: Update, context: ContextTypes.DEFAULT_T
                     if connect_success:
                         await update.message.reply_text(
                             "✅ **AUTHENTICATION & CONNECTION SUCCESSFUL!**\n\n"
-                            f"Authenticated as: **{me.first_name}**\n"
-                            f"Phone: **{me.phone_number}**\n"
+                            f"Authenticated as: {me.first_name}\n"
+                            f"Phone: {me.phone_number}\n"
                             f"Status: {connect_message}\n\n"
                             "🎯 **Your userbot is ready!**\n"
                             "• Products will be delivered via direct message\n"
@@ -605,7 +605,7 @@ async def handle_userbot_message(update: Update, context: ContextTypes.DEFAULT_T
                         await update.message.reply_text(
                             "✅ **AUTHENTICATION SUCCESSFUL!**\n"
                             "⚠️ **CONNECTION ISSUE**\n\n"
-                            f"Authenticated as: **{me.first_name}**\n"
+                            f"Authenticated as: {me.first_name}\n"
                             f"Connection error: {connect_message}\n\n"
                             "🔧 **Manual connection needed**\n"
                             "• Use 'Connect Userbot' button to retry\n"
@@ -683,8 +683,8 @@ async def handle_userbot_message(update: Update, context: ContextTypes.DEFAULT_T
                     if connect_success:
                         await update.message.reply_text(
                             "✅ **2FA AUTHENTICATION & CONNECTION SUCCESSFUL!**\n\n"
-                            f"Authenticated as: **{me.first_name}**\n"
-                            f"Phone: **{me.phone_number}**\n"
+                            f"Authenticated as: {me.first_name}\n"
+                            f"Phone: {me.phone_number}\n"
                             f"Status: {connect_message}\n\n"
                             "🎯 **Your userbot is ready!**\n"
                             "• Products will be delivered via secret chat\n"
@@ -699,7 +699,7 @@ async def handle_userbot_message(update: Update, context: ContextTypes.DEFAULT_T
                         await update.message.reply_text(
                             "✅ **2FA AUTHENTICATION SUCCESSFUL!**\n"
                             "⚠️ **CONNECTION ISSUE**\n\n"
-                            f"Authenticated as: **{me.first_name}**\n"
+                            f"Authenticated as: {me.first_name}\n"
                             f"Connection error: {connect_message}\n\n"
                             "🔧 **Manual connection needed**\n"
                             "• Use 'Connect Userbot' button to retry\n"
