@@ -209,13 +209,17 @@ async def handle_userbot_test(update: Update, context: ContextTypes.DEFAULT_TYPE
 async def handle_userbot_api_id_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle API ID input"""
     try:
+        logger.info(f"🔍 USERBOT ADMIN: Processing API ID from user {update.effective_user.id}")
         api_id_text = update.message.text.strip()
+        logger.info(f"🔍 USERBOT ADMIN: Received API ID text: {api_id_text}")
         
         try:
             api_id = int(api_id_text)
             context.user_data['temp_api_id'] = api_id
             context.user_data.pop('awaiting_userbot_api_id', None)
             context.user_data['awaiting_userbot_api_hash'] = True
+            
+            logger.info(f"✅ USERBOT ADMIN: API ID {api_id} saved, awaiting API Hash")
             
             await update.message.reply_text(
                 "✅ API ID saved!\n\n"
@@ -225,6 +229,7 @@ async def handle_userbot_api_id_message(update: Update, context: ContextTypes.DE
                 ]])
             )
         except ValueError:
+            logger.warning(f"❌ USERBOT ADMIN: Invalid API ID format: {api_id_text}")
             await update.message.reply_text("❌ Invalid API ID. Please send a number only.")
             
     except Exception as e:

@@ -461,10 +461,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         'awaiting_payment_recovery_id': admin.handle_payment_recovery_id_message,
         'awaiting_recovery_decision': admin.handle_recovery_decision_message,
         
-        # Userbot Admin Handlers
-        'userbot_status': userbot_admin.handle_userbot_status,
-        # No old userbot functions needed - they're handled in callback handlers
-        
         # Userbot Message States
         'awaiting_userbot_api_id': userbot_admin.handle_userbot_api_id_message,
         'awaiting_userbot_api_hash': userbot_admin.handle_userbot_api_hash_message,
@@ -487,9 +483,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     handler_func = STATE_HANDLERS.get(state)
     if handler_func:
+        logger.info(f"🔍 MESSAGE: Handling state '{state}' for user {user_id}")
         await handler_func(update, context)
     else:
         logger.debug(f"No handler found for user {user_id} in state: {state}")
+        # Also log user data for debugging
+        if state:
+            logger.info(f"🔍 MESSAGE: Unknown state '{state}' for user {user_id}, user_data keys: {list(context.user_data.keys())}")
 
 # --- Error Handler ---
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
