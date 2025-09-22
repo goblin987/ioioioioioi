@@ -58,6 +58,10 @@ async def handle_userbot_status(update: Update, context: ContextTypes.DEFAULT_TY
             keyboard.append([InlineKeyboardButton("🔌 Disconnect", callback_data="userbot_disconnect")])
             keyboard.append([InlineKeyboardButton("🧪 Test Delivery", callback_data="userbot_test")])
         
+        # Always show clear configuration option if any configuration exists
+        if status['has_credentials'] or status['has_session']:
+            keyboard.append([InlineKeyboardButton("🗑️ Clear Configuration", callback_data="userbot_clear_config")])
+        
         keyboard.append([InlineKeyboardButton("🔙 Back to Admin", callback_data="admin_menu")])
         
         await update.callback_query.edit_message_text(
@@ -702,6 +706,46 @@ async def handle_userbot_message(update: Update, context: ContextTypes.DEFAULT_T
             parse_mode=ParseMode.MARKDOWN
         )
 
+async def handle_userbot_clear_config(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
+    """Handle clearing userbot configuration"""
+    if not is_admin(update.effective_user.id):
+        await update.callback_query.answer("❌ Admin access required")
+        return
+    
+    await update.callback_query.answer()
+    
+    from userbot import userbot
+    
+    try:
+        success, message = userbot.clear_configuration()
+        if success:
+            await update.callback_query.edit_message_text(
+                "✅ **Configuration Cleared Successfully!**\n\n"
+                "All userbot credentials and session data have been removed.\n\n"
+                "You can now set up the userbot again with new credentials.",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("🔙 Back to Status", callback_data="userbot_status")
+                ]]),
+                parse_mode='Markdown'
+            )
+        else:
+            await update.callback_query.edit_message_text(
+                f"❌ **Failed to Clear Configuration**\n\n{message}",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("🔙 Back to Status", callback_data="userbot_status")
+                ]]),
+                parse_mode='Markdown'
+            )
+    except Exception as e:
+        logger.error(f"Clear configuration error: {e}")
+        await update.callback_query.edit_message_text(
+            f"❌ **Clear Configuration Error**\n\n{str(e)}",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("🔙 Back to Status", callback_data="userbot_status")
+            ]]),
+            parse_mode='Markdown'
+        )
+
 def get_userbot_handlers():
     """Get userbot admin handlers"""
     return [
@@ -712,4 +756,5 @@ def get_userbot_handlers():
         ("userbot_connect", handle_userbot_connect),
         ("userbot_disconnect", handle_userbot_disconnect),
         ("userbot_test", handle_userbot_test),
+        ("userbot_clear_config", handle_userbot_clear_config),
     ]

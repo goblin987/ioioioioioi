@@ -76,6 +76,37 @@ class SimpleUserbot:
             
         except Exception as e:
             logger.error(f"❌ USERBOT: Error saving configuration: {e}")
+    
+    def clear_configuration(self):
+        """Clear userbot configuration and session"""
+        try:
+            config_file = '/mnt/data/userbot_config.json'
+            if os.path.exists(config_file):
+                os.remove(config_file)
+                logger.info("✅ USERBOT: Configuration file deleted")
+            
+            # Reset all properties
+            self.api_id = None
+            self.api_hash = None
+            self.phone_number = None
+            self.session_string = None
+            self.has_session = False
+            self.is_connected = False
+            
+            # Disconnect if connected
+            if self.client:
+                try:
+                    asyncio.create_task(self.client.stop())
+                except:
+                    pass
+                self.client = None
+            
+            logger.info("✅ USERBOT: Configuration cleared")
+            return True, "Configuration cleared successfully"
+            
+        except Exception as e:
+            logger.error(f"❌ USERBOT: Error clearing configuration: {e}")
+            return False, f"Error clearing configuration: {e}"
         
     def set_credentials(self, api_id: int, api_hash: str, phone_number: str) -> Tuple[bool, str]:
         """Set userbot credentials"""
