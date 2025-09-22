@@ -522,38 +522,23 @@ async def handle_userbot_message(update: Update, context: ContextTypes.DEFAULT_T
                 return
             
             try:
+                from telethon.errors import SessionPasswordNeededError
+                
                 # Sign in with the code
                 phone = session['account_data']['phone_number']
-                result = await client.sign_in(phone, code)
                 
-                # Handle different authentication results
-                from telethon.errors import SessionPasswordNeededError
-                from telethon.tl.types import auth
+                # This is the correct way to handle Telethon sign_in
+                me = await client.sign_in(phone, code)
                 
-                # Check if 2FA is required
-                if hasattr(result, '__class__') and 'PasswordNeeded' in str(type(result)):
-                    session['step'] = '2fa_password'
-                    await update.message.reply_text(
-                        "🔐 **2FA Required**\n\n"
-                        "Your account has Two-Factor Authentication enabled.\n\n"
-                        "Please send your 2FA password (Cloud Password):",
-                        parse_mode=ParseMode.MARKDOWN
-                    )
-                    return
+                # If we get here, authentication was successful
+                logger.info(f"✅ Successfully authenticated as {me.first_name} ({me.phone})")
                 
-                # Authentication successful - get session
+                # Get session file path
                 session_file_path = f"{session['session_name']}.session"
                 
-                # Ensure session is saved
+                # Ensure session is saved to disk
                 await client.disconnect()
                 await client.connect()
-                
-                # Verify we're authenticated
-                me = await client.get_me()
-                if not me:
-                    raise Exception("Authentication verification failed")
-                
-                logger.info(f"✅ Successfully authenticated as {me.first_name} ({me.phone})")
                 
                 # Read the session file and encode it
                 with open(session_file_path, 'rb') as f:
