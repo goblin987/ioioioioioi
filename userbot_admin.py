@@ -20,6 +20,10 @@ user_sessions = {}
 
 async def handle_userbot_status(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Show userbot status"""
+    if not is_any_admin(update.effective_user.id):
+        await update.callback_query.answer("❌ Admin access required")
+        return
+    
     try:
         status = userbot.get_status()
         
@@ -77,6 +81,10 @@ async def handle_userbot_status(update: Update, context: ContextTypes.DEFAULT_TY
 
 async def handle_userbot_set_credentials(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Start credential setup process"""
+    if not is_any_admin(update.effective_user.id):
+        await update.callback_query.answer("❌ Admin access required")
+        return
+    
     try:
         await update.callback_query.answer("Setting up credentials...")
         
@@ -110,6 +118,10 @@ async def handle_userbot_set_credentials(update: Update, context: ContextTypes.D
 
 async def handle_userbot_authenticate(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Start authentication process"""
+    if not is_any_admin(update.effective_user.id):
+        await update.callback_query.answer("❌ Admin access required")
+        return
+    
     try:
         await update.callback_query.answer("Starting authentication...")
         
@@ -130,6 +142,10 @@ async def handle_userbot_authenticate(update: Update, context: ContextTypes.DEFA
 
 async def handle_userbot_authenticate_2fa(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Start 2FA authentication process"""
+    if not is_any_admin(update.effective_user.id):
+        await update.callback_query.answer("❌ Admin access required")
+        return
+    
     try:
         await update.callback_query.answer("Starting 2FA authentication...")
         
@@ -150,6 +166,10 @@ async def handle_userbot_authenticate_2fa(update: Update, context: ContextTypes.
 
 async def handle_userbot_connect(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Connect userbot"""
+    if not is_any_admin(update.effective_user.id):
+        await update.callback_query.answer("❌ Admin access required")
+        return
+    
     try:
         await update.callback_query.answer("Connecting...")
         
@@ -177,6 +197,10 @@ async def handle_userbot_connect(update: Update, context: ContextTypes.DEFAULT_T
 
 async def handle_userbot_disconnect(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Disconnect userbot"""
+    if not is_any_admin(update.effective_user.id):
+        await update.callback_query.answer("❌ Admin access required")
+        return
+    
     try:
         await update.callback_query.answer("Disconnecting...")
         
@@ -195,6 +219,10 @@ async def handle_userbot_disconnect(update: Update, context: ContextTypes.DEFAUL
 
 async def handle_userbot_test(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Test userbot delivery"""
+    if not is_any_admin(update.effective_user.id):
+        await update.callback_query.answer("❌ Admin access required")
+        return
+    
     try:
         await update.callback_query.answer("Testing delivery...")
         
