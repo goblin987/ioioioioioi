@@ -1486,7 +1486,7 @@ async def _trigger_userbot_delivery(user_id: int, basket_snapshot: list, context
         # Prepare product data for userbot delivery
         if len(basket_snapshot) == 1:
             product_data = {
-                'product_name': basket_snapshot[0]['product_name'],
+                'product_name': basket_snapshot[0]['name'],  # Fixed: use 'name' not 'product_name'
                 'product_type': basket_snapshot[0]['product_type'],
                 'city': basket_snapshot[0]['city'],
                 'district': basket_snapshot[0]['district'],

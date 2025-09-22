@@ -272,7 +272,7 @@ class SimpleUserbot:
             from utils import get_db_connection
             conn = get_db_connection()
             c = conn.cursor()
-            c.execute("SELECT telegram_username FROM users WHERE user_id = ?", (user_id,))
+            c.execute("SELECT username FROM users WHERE user_id = ?", (user_id,))
             user_data = c.fetchone()
             conn.close()
             
