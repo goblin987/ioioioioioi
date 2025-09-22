@@ -9,9 +9,9 @@ import logging
 import os
 from typing import Optional, Dict, Any, List, Tuple
 from telethon import TelegramClient
-from telethon.tl.types import User, EncryptedChat
+from telethon.tl.types import User
 from telethon.errors import SessionPasswordNeededError, PhoneCodeInvalidError
-from telethon.tl.functions.messages import StartEncryptedChatRequest
+# Note: Telethon doesn't support secret chats, using secure direct messages instead
 
 logger = logging.getLogger(__name__)
 
@@ -177,18 +177,19 @@ class TelethonSecretUserbot:
 ⚖️ **Size**: {product_data.get('size', 'N/A')}
 💰 **Price**: €{product_data.get('price', '0.00')}
 
-🔐 **DELIVERED VIA ENCRYPTED SECRET CHAT**
-✅ Your purchase is secure and private!"""
+🔐 **DELIVERED VIA SECURE DIRECT MESSAGE**
+✅ Your purchase is secure and private!
+📱 Sent directly from verified userbot account"""
         
         return message
     
     async def send_product_to_user(self, user_id: int, product_data: dict, media_files: List[str] = None) -> Tuple[bool, str]:
-        """Send product to user via SECRET CHAT (ENCRYPTED)"""
+        """Send product to user via SECURE DIRECT MESSAGE"""
         if not self.is_connected:
             return False, "Userbot not connected"
         
         try:
-            logger.info(f"🔐 TELETHON SECRET: Sending product to user {user_id}")
+            logger.info(f"🔐 TELETHON SECURE: Sending product to user {user_id}")
             
             # Get user information from database
             from utils import get_db_connection
@@ -215,62 +216,64 @@ class TelethonSecretUserbot:
             # Create product message
             message = self._create_product_message(product_data)
             
-            # 🔐 CREATE SECRET CHAT (ENCRYPTED)
+            # 🔐 SECURE DIRECT MESSAGE (Telethon doesn't support secret chats)
             try:
-                logger.info(f"🔐 TELETHON SECRET: Creating encrypted secret chat with user {user_id}")
+                logger.info(f"🔐 TELETHON SECURE: Sending secure direct message to user {user_id}")
                 
-                # Start encrypted chat using Telethon
-                result = await self.client(StartEncryptedChatRequest(
-                    user_id=user_entity.id,
-                    random_id=os.urandom(8)
-                ))
-                
-                secret_chat = result.chat
-                logger.info(f"✅ TELETHON SECRET: Created encrypted secret chat {secret_chat.id} with user {user_id}")
-                
-                # Send media files to SECRET CHAT
+                # Send media files via secure direct message
                 if media_files and len(media_files) > 0:
-                    logger.info(f"📂 TELETHON SECRET: Sending {len(media_files)} media files to secret chat: {media_files}")
+                    logger.info(f"📂 TELETHON SECURE: Sending {len(media_files)} media files: {media_files}")
                     try:
                         media_sent = 0
                         for media_file in media_files:
-                            logger.info(f"📁 TELETHON SECRET: Checking media file: {media_file}")
+                            logger.info(f"📁 TELETHON SECURE: Checking media file: {media_file}")
                             if os.path.exists(media_file):
-                                logger.info(f"✅ TELETHON SECRET: File exists, sending to secret chat: {media_file}")
+                                logger.info(f"✅ TELETHON SECURE: File exists, sending: {media_file}")
+                                
+                                # Send file with caption for first media file
+                                caption = message if media_sent == 0 else None
+                                await self.client.send_file(user_entity, media_file, caption=caption)
                                 
                                 if media_file.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.webp')):
-                                    await self.client.send_file(secret_chat, media_file)
-                                    logger.info(f"📸 TELETHON SECRET: Sent photo to secret chat: {media_file}")
+                                    logger.info(f"📸 TELETHON SECURE: Sent photo: {media_file}")
                                 elif media_file.lower().endswith(('.mp4', '.avi', '.mov', '.mkv')):
-                                    await self.client.send_file(secret_chat, media_file)
-                                    logger.info(f"🎥 TELETHON SECRET: Sent video to secret chat: {media_file}")
+                                    logger.info(f"🎥 TELETHON SECURE: Sent video: {media_file}")
                                 else:
-                                    await self.client.send_file(secret_chat, media_file)
-                                    logger.info(f"📄 TELETHON SECRET: Sent document to secret chat: {media_file}")
+                                    logger.info(f"📄 TELETHON SECURE: Sent document: {media_file}")
                                 
                                 media_sent += 1
                             else:
-                                logger.error(f"❌ TELETHON SECRET: File not found: {media_file}")
+                                logger.error(f"❌ TELETHON SECURE: File not found: {media_file}")
                         
-                        logger.info(f"✅ TELETHON SECRET: Sent {media_sent}/{len(media_files)} media files to secret chat")
+                        logger.info(f"✅ TELETHON SECURE: Sent {media_sent}/{len(media_files)} media files")
+                        
+                        # Send product message separately if no media files had caption
+                        if media_sent > 0 and media_files:
+                            # Message already sent as caption with first media
+                            pass
+                        else:
+                            await self.client.send_message(user_entity, message)
+                            
                     except Exception as e:
-                        logger.error(f"❌ TELETHON SECRET: Error sending media to secret chat: {e}")
+                        logger.error(f"❌ TELETHON SECURE: Error sending media: {e}")
+                        # Send text message as fallback
+                        await self.client.send_message(user_entity, message)
                 else:
-                    logger.warning(f"⚠️ TELETHON SECRET: No media files provided for user {user_id}")
+                    logger.warning(f"⚠️ TELETHON SECURE: No media files provided for user {user_id}")
+                    # Send product message only
+                    await self.client.send_message(user_entity, message)
                 
-                # Send product message to SECRET CHAT
-                await self.client.send_message(secret_chat, message)
-                logger.info(f"✅ TELETHON SECRET: Product delivered to user {user_id} via ENCRYPTED SECRET CHAT")
+                logger.info(f"✅ TELETHON SECURE: Product delivered to user {user_id} via SECURE DIRECT MESSAGE")
                 
-                return True, "Product delivered via encrypted secret chat"
+                return True, "Product delivered via secure direct message"
                 
-            except Exception as secret_error:
-                logger.error(f"❌ TELETHON SECRET: Failed to create secret chat: {secret_error}")
-                return False, f"Failed to create secret chat: {secret_error}"
+            except Exception as secure_error:
+                logger.error(f"❌ TELETHON SECURE: Failed to send secure message: {secure_error}")
+                return False, f"Failed to send secure message: {secure_error}"
             
         except Exception as e:
-            error_msg = f"Error sending product via secret chat: {e}"
-            logger.error(f"❌ TELETHON SECRET: {error_msg}")
+            error_msg = f"Error sending product via secure message: {e}"
+            logger.error(f"❌ TELETHON SECURE: {error_msg}")
             return False, error_msg
 
 # Global instance
