@@ -1168,8 +1168,11 @@ async def _finalize_purchase(user_id: int, basket_snapshot: list, discount_code_
 
         # Only return success if both database and media delivery were successful
         if media_delivery_successful:
-            # Trigger userbot delivery if configured
-            await _trigger_userbot_delivery(user_id, basket_snapshot, context)
+            # Try userbot delivery first - if it succeeds, skip bot chat delivery
+            userbot_success = await _trigger_userbot_delivery(user_id, basket_snapshot, context)
+            if not userbot_success:
+                # Userbot failed, products already sent via bot chat above
+                logger.info(f"🔄 FALLBACK: Products delivered via bot chat for user {user_id}")
             return True # Indicate complete success
         else:
             logger.critical(f"🚨 CRITICAL: Purchase {user_id} - Database updated but media delivery failed! Manual intervention required!")
@@ -1471,7 +1474,7 @@ async def handle_cancel_crypto_payment(update: Update, context: ContextTypes.DEF
 
 
 # --- Simple Userbot Integration ---
-async def _trigger_userbot_delivery(user_id: int, basket_snapshot: list, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def _trigger_userbot_delivery(user_id: int, basket_snapshot: list, context: ContextTypes.DEFAULT_TYPE) -> bool:
     """Trigger userbot delivery for completed purchase"""
     try:
         # Import here to avoid circular imports
@@ -1481,7 +1484,7 @@ async def _trigger_userbot_delivery(user_id: int, basket_snapshot: list, context
         if not userbot.is_connected:
             logger.info(f"🔄 USERBOT: Userbot not connected - using fallback delivery for user {user_id}")
             await _fallback_delivery_to_bot_chat(user_id, basket_snapshot, context)
-            return
+            return False  # Userbot failed, fallback used
         
         # Prepare product data for userbot delivery
         if len(basket_snapshot) == 1:
@@ -1525,14 +1528,17 @@ async def _trigger_userbot_delivery(user_id: int, basket_snapshot: list, context
         
         if success:
             logger.info(f"✅ USERBOT: Secret message sent to user {user_id}")
+            return True  # Userbot succeeded - no fallback needed
         else:
             logger.warning(f"⚠️ USERBOT: Failed to send secret message to user {user_id}: {message} - using fallback")
             await _fallback_delivery_to_bot_chat(user_id, basket_snapshot, context)
+            return False  # Userbot failed, fallback used
             
     except Exception as e:
         logger.error(f"❌ USERBOT: Error triggering delivery for user {user_id}: {e}")
         logger.info(f"🔄 USERBOT: Using fallback delivery to bot chat for user {user_id}")
         await _fallback_delivery_to_bot_chat(user_id, basket_snapshot, context)
+        return False  # Userbot failed, fallback used
 
 async def _fallback_delivery_to_bot_chat(user_id: int, basket_snapshot: list, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Fallback delivery to bot chat when userbot fails"""

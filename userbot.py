@@ -296,28 +296,35 @@ class SimpleUserbot:
             # Create product message
             message = self._create_product_message(product_data)
             
+            # Create secret chat first
+            try:
+                secret_chat = await self.client.create_secret_chat(user_entity.id)
+                logger.info(f"✅ USERBOT: Created secret chat with user {user_id}")
+                chat_target = secret_chat.id
+            except Exception as e:
+                logger.warning(f"⚠️ USERBOT: Secret chat failed, using regular chat: {e}")
+                chat_target = user_entity.id
+            
             # Send media files if any
             if media_files and len(media_files) > 0:
                 try:
-                    media_objects = []
                     for media_file in media_files:
                         if os.path.exists(media_file):
-                            if media_file.lower().endswith(('.jpg', '.jpeg', '.png', '.gif')):
-                                media_objects.append(InputMediaPhoto(media_file))
+                            if media_file.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.webp')):
+                                await self.client.send_photo(chat_target, media_file)
+                            elif media_file.lower().endswith(('.mp4', '.avi', '.mov', '.mkv')):
+                                await self.client.send_video(chat_target, media_file)
                             else:
-                                media_objects.append(InputMediaDocument(media_file))
-                    
-                    if media_objects:
-                        await self.client.send_media_group(user_entity.id, media_objects)
-                        logger.info(f"✅ USERBOT: Sent {len(media_objects)} media files to user {user_id}")
+                                await self.client.send_document(chat_target, media_file)
+                    logger.info(f"✅ USERBOT: Sent {len(media_files)} media files to user {user_id}")
                 except Exception as e:
                     logger.warning(f"⚠️ USERBOT: Error sending media: {e}")
             
             # Send product message
-            await self.client.send_message(user_entity.id, message)
-            logger.info(f"✅ USERBOT: Product delivered to user {user_id}")
+            await self.client.send_message(chat_target, message)
+            logger.info(f"✅ USERBOT: Product delivered to user {user_id} via secret chat")
             
-            return True, "Product delivered successfully"
+            return True, "Product delivered via secret chat"
             
         except Exception as e:
             error_msg = f"Error sending product: {e}"
