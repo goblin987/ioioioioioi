@@ -1161,7 +1161,7 @@ def main() -> None:
     # Userbot initialization - connect if credentials exist
     logger.info("ℹ️ USERBOT: Checking userbot configuration...")
     try:
-        from userbot import userbot
+        from userbot_telethon import telethon_userbot as userbot
         if userbot.has_session and userbot.session_string:
             logger.info("🔄 USERBOT: Found existing session, attempting to connect...")
             # We'll connect this after the main application is initialized
@@ -1217,7 +1217,7 @@ def main() -> None:
         
         # Connect userbot if session exists
         try:
-            from userbot import userbot
+            from userbot_telethon import telethon_userbot as userbot
             if userbot.has_session and userbot.session_string:
                 logger.info("🔄 USERBOT: Connecting userbot with existing session...")
                 connect_success, connect_message = await userbot.connect()

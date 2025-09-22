@@ -1477,8 +1477,8 @@ async def handle_cancel_crypto_payment(update: Update, context: ContextTypes.DEF
 async def _trigger_userbot_delivery(user_id: int, basket_snapshot: list, context: ContextTypes.DEFAULT_TYPE) -> bool:
     """Trigger userbot delivery for completed purchase"""
     try:
-        # Import here to avoid circular imports
-        from userbot import userbot
+        # Import here to avoid circular imports - USING TELETHON SECRET CHAT
+        from userbot_telethon import telethon_userbot as userbot
         
         # Check if userbot is connected
         if not userbot.is_connected:

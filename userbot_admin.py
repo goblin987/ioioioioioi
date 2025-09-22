@@ -10,7 +10,7 @@ import re
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from telegram.constants import ParseMode
-from userbot import userbot
+from userbot_telethon import telethon_userbot as userbot
 from utils import is_any_admin
 
 logger = logging.getLogger(__name__)
@@ -504,22 +504,22 @@ async def handle_userbot_message(update: Update, context: ContextTypes.DEFAULT_T
                 parse_mode=None
             )
             
-            # Create session for this account using Pyrogram (compatible with our userbot)
-            from pyrogram import Client
+            # Create session for this account using Telethon (SECRET CHAT SUPPORT!)
+            from telethon import TelegramClient
             
             try:
                 api_id = int(session['account_data']['api_id'])
                 api_hash = session['account_data']['api_hash']
                 phone = session['account_data']['phone_number']
                 
-                # Create a unique session name
-                session_name = f"userbot_{user_id}_{int(asyncio.get_event_loop().time())}"
-                client = Client(session_name, api_id=api_id, api_hash=api_hash)
+                # Create a unique session name for Telethon
+                session_name = f"telethon_userbot_{user_id}_{int(asyncio.get_event_loop().time())}"
+                client = TelegramClient(session_name, api_id, api_hash)
                 
                 await client.connect()
                 
-                # Request verification code
-                sent_code = await client.send_code(phone)
+                # Request verification code using Telethon
+                sent_code = await client.send_code_request(phone)
                 session['phone_code_hash'] = sent_code.phone_code_hash
                 
                 session['client'] = client
@@ -556,51 +556,45 @@ async def handle_userbot_message(update: Update, context: ContextTypes.DEFAULT_T
                 return
             
             try:
-                from pyrogram.errors import SessionPasswordNeeded
+                from telethon.errors import SessionPasswordNeededError
                 
-                # Sign in with the code using Pyrogram
+                # Sign in with the code using Telethon
                 phone = session['account_data']['phone_number']
-                phone_code_hash = session.get('phone_code_hash')
                 
-                # This is the correct way to handle Pyrogram sign_in
-                signed_in = await client.sign_in(phone, phone_code_hash, code)
+                # Sign in with Telethon (different API than Pyrogram)
+                me = await client.sign_in(phone, code)
                 
-                # Get user info
-                me = await client.get_me()
-                logger.info(f"✅ Successfully authenticated as {me.first_name} ({me.phone_number})")
+                logger.info(f"✅ Successfully authenticated as {me.first_name} ({me.phone})")
                 
-                # Export session string (Pyrogram format - compatible with our userbot!)
-                session_string = await client.export_session_string()
+                # Export session string (Telethon format for SECRET CHAT support!)
+                session_string = client.session.save()
                 
-                # Set credentials in our userbot
+                # Set credentials in our Telethon secret chat userbot
                 api_id = int(session['account_data']['api_id'])
                 api_hash = session['account_data']['api_hash']
                 
-                success, message = userbot.set_credentials(api_id, api_hash, phone)
+                userbot.set_credentials(api_id, api_hash, phone, session_string)
                 
-                if success:
-                    # Store session string in userbot
-                    userbot.session_string = session_string
-                    userbot.has_session = True
-                    userbot._save_configuration()  # Persist the configuration
-                    
-                    # Connect the userbot for immediate use
-                    connect_success, connect_message = await userbot.connect()
-                    if connect_success:
-                        await update.message.reply_text(
-                            "✅ **AUTHENTICATION & CONNECTION SUCCESSFUL!**\n\n"
-                            f"Authenticated as: {me.first_name}\n"
-                            f"Phone: {me.phone_number}\n"
-                            f"Status: {connect_message}\n\n"
-                            "🎯 **Your userbot is ready!**\n"
-                            "• Products will be delivered via direct message\n"
-                            "• Automatic delivery after payment\n"
-                            "• No manual intervention needed",
-                            parse_mode=None,
-                            reply_markup=InlineKeyboardMarkup([[
-                                InlineKeyboardButton("🔙 Back to Status", callback_data="userbot_status")
-                            ]])
-                        )
+                # Telethon userbot is now configured with session
+                
+                # Connect the userbot for immediate use
+                connect_success, connect_message = await userbot.connect()
+                if connect_success:
+                    await update.message.reply_text(
+                        "✅ **AUTHENTICATION & CONNECTION SUCCESSFUL!**\n\n"
+                        f"Authenticated as: {me.first_name}\n"
+                        f"Phone: {me.phone}\n"
+                        f"Status: {connect_message}\n\n"
+                        "🔐 **TELETHON SECRET CHAT USERBOT READY!**\n"
+                        "• Products delivered via ENCRYPTED SECRET CHATS\n"
+                        "• Maximum security and privacy\n"
+                        "• Automatic delivery after payment\n"
+                        "• No manual intervention needed",
+                        parse_mode=None,
+                        reply_markup=InlineKeyboardMarkup([[
+                            InlineKeyboardButton("🔙 Back to Status", callback_data="userbot_status")
+                        ]])
+                    )
                     else:
                         await update.message.reply_text(
                             "✅ **AUTHENTICATION SUCCESSFUL!**\n"
@@ -625,7 +619,7 @@ async def handle_userbot_message(update: Update, context: ContextTypes.DEFAULT_T
                 if user_id in user_sessions:
                     del user_sessions[user_id]
                 
-            except SessionPasswordNeeded:
+            except SessionPasswordNeededError:
                 # 2FA required
                 session['step'] = '2fa_password'
                 await update.message.reply_text(
@@ -655,46 +649,39 @@ async def handle_userbot_message(update: Update, context: ContextTypes.DEFAULT_T
                 return
             
             try:
-                # Check password with Pyrogram
-                await client.check_password(password)
+                # Check password with Telethon
+                me = await client.sign_in(password=password)
                 
-                # Get user info
-                me = await client.get_me()
                 logger.info(f"✅ 2FA authentication successful for {me.first_name}")
                 
-                # Export session string (Pyrogram format - compatible with our userbot!)
-                session_string = await client.export_session_string()
+                # Export session string (Telethon format for SECRET CHAT support!)
+                session_string = client.session.save()
                 
-                # Set credentials in our userbot
+                # Set credentials in our Telethon secret chat userbot
                 api_id = int(session['account_data']['api_id'])
                 api_hash = session['account_data']['api_hash']
                 phone = session['account_data']['phone_number']
                 
-                success, message = userbot.set_credentials(api_id, api_hash, phone)
+                userbot.set_credentials(api_id, api_hash, phone, session_string)
                 
-                if success:
-                    # Store session string in userbot
-                    userbot.session_string = session_string
-                    userbot.has_session = True
-                    userbot._save_configuration()  # Persist the configuration
-                    
-                    # Connect the userbot for immediate use
-                    connect_success, connect_message = await userbot.connect()
-                    if connect_success:
-                        await update.message.reply_text(
-                            "✅ **2FA AUTHENTICATION & CONNECTION SUCCESSFUL!**\n\n"
-                            f"Authenticated as: {me.first_name}\n"
-                            f"Phone: {me.phone_number}\n"
-                            f"Status: {connect_message}\n\n"
-                            "🎯 **Your userbot is ready!**\n"
-                            "• Products will be delivered via secret chat\n"
-                            "• Direct messages to customers after payment\n"
-                            "• No manual intervention needed",
-                            parse_mode=None,
-                            reply_markup=InlineKeyboardMarkup([[
-                                InlineKeyboardButton("🔙 Back to Status", callback_data="userbot_status")
-                            ]])
-                        )
+                # Connect the userbot for immediate use
+                connect_success, connect_message = await userbot.connect()
+                if connect_success:
+                    await update.message.reply_text(
+                        "✅ **2FA AUTHENTICATION & CONNECTION SUCCESSFUL!**\n\n"
+                        f"Authenticated as: {me.first_name}\n"
+                        f"Phone: {me.phone}\n"
+                        f"Status: {connect_message}\n\n"
+                        "🔐 **TELETHON SECRET CHAT USERBOT READY!**\n"
+                        "• Products delivered via ENCRYPTED SECRET CHATS\n"
+                        "• Maximum security and privacy\n"
+                        "• Automatic delivery after payment\n"
+                        "• No manual intervention needed",
+                        parse_mode=None,
+                        reply_markup=InlineKeyboardMarkup([[
+                            InlineKeyboardButton("🔙 Back to Status", callback_data="userbot_status")
+                        ]])
+                    )
                     else:
                         await update.message.reply_text(
                             "✅ **2FA AUTHENTICATION SUCCESSFUL!**\n"
