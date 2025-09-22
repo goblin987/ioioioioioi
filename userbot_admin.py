@@ -523,14 +523,130 @@ async def handle_userbot_message(update: Update, context: ContextTypes.DEFAULT_T
             
             try:
                 # Sign in with the code
-                await client.sign_in(session['account_data']['phone_number'], code)
+                phone = session['account_data']['phone_number']
+                result = await client.sign_in(phone, code)
                 
-                # Get session string - save the actual session file content
+                # Handle different authentication results
+                from telethon.errors import SessionPasswordNeededError
+                from telethon.tl.types import auth
+                
+                # Check if 2FA is required
+                if hasattr(result, '__class__') and 'PasswordNeeded' in str(type(result)):
+                    session['step'] = '2fa_password'
+                    await update.message.reply_text(
+                        "🔐 **2FA Required**\n\n"
+                        "Your account has Two-Factor Authentication enabled.\n\n"
+                        "Please send your 2FA password (Cloud Password):",
+                        parse_mode=ParseMode.MARKDOWN
+                    )
+                    return
+                
+                # Authentication successful - get session
                 session_file_path = f"{session['session_name']}.session"
                 
-                # Save the session to ensure it's written to disk
+                # Ensure session is saved
                 await client.disconnect()
                 await client.connect()
+                
+                # Verify we're authenticated
+                me = await client.get_me()
+                if not me:
+                    raise Exception("Authentication verification failed")
+                
+                logger.info(f"✅ Successfully authenticated as {me.first_name} ({me.phone})")
+                
+                # Read the session file and encode it
+                with open(session_file_path, 'rb') as f:
+                    session_data = f.read()
+                session_string = base64.b64encode(session_data).decode('utf-8')
+                
+                # Set credentials in our userbot
+                api_id = int(session['account_data']['api_id'])
+                api_hash = session['account_data']['api_hash']
+                
+                success, message = await userbot.set_credentials(api_id, api_hash, phone)
+                
+                if success:
+                    # Store session string in userbot
+                    userbot.session_string = session_string
+                    userbot.has_session = True
+                    
+                    await update.message.reply_text(
+                        "✅ **AUTHENTICATION SUCCESSFUL!**\n\n"
+                        f"Authenticated as: **{me.first_name}**\n"
+                        f"Phone: **{me.phone}**\n\n"
+                        "🎯 **Your userbot is ready!**\n"
+                        "• Products will be delivered automatically\n"
+                        "• Direct messages to customers after payment\n"
+                        "• No manual intervention needed",
+                        parse_mode=ParseMode.MARKDOWN,
+                        reply_markup=InlineKeyboardMarkup([[
+                            InlineKeyboardButton("🔙 Back to Status", callback_data="userbot_status")
+                        ]])
+                    )
+                else:
+                    await update.message.reply_text(f"❌ Error setting credentials: {message}")
+                
+                # Disconnect client and cleanup
+                await client.disconnect()
+                
+                # Clean up session file
+                try:
+                    if os.path.exists(session_file_path):
+                        os.remove(session_file_path)
+                except:
+                    pass
+                
+                # Clear session
+                if user_id in user_sessions:
+                    del user_sessions[user_id]
+                
+            except SessionPasswordNeededError:
+                # 2FA required
+                session['step'] = '2fa_password'
+                await update.message.reply_text(
+                    "🔐 **2FA Required**\n\n"
+                    "Your account has Two-Factor Authentication enabled.\n\n"
+                    "Please send your 2FA password (Cloud Password):",
+                    parse_mode=ParseMode.MARKDOWN
+                )
+            except Exception as e:
+                logger.error(f"Failed to authenticate with code: {e}")
+                await update.message.reply_text(
+                    f"❌ **Authentication Failed**\n\n"
+                    f"Error: {str(e)}\n\n"
+                    f"Please check your verification code and try again.",
+                    parse_mode=ParseMode.MARKDOWN
+                )
+        
+        elif session['step'] == '2fa_password':
+            # Handle 2FA password
+            password = message_text.strip()
+            client = session.get('client')
+            
+            if not client:
+                await update.message.reply_text("❌ Session expired. Please start over.")
+                if user_id in user_sessions:
+                    del user_sessions[user_id]
+                return
+            
+            try:
+                # Sign in with 2FA password
+                await client.sign_in(password=password)
+                
+                # Get session
+                session_file_path = f"{session['session_name']}.session"
+                
+                # Ensure session is saved
+                await client.disconnect()
+                await client.connect()
+                
+                # Verify authentication
+                me = await client.get_me()
+                if not me:
+                    raise Exception("2FA authentication verification failed")
+                
+                logger.info(f"✅ 2FA authentication successful for {me.first_name}")
                 
                 # Read the session file and encode it
                 with open(session_file_path, 'rb') as f:
@@ -550,11 +666,12 @@ async def handle_userbot_message(update: Update, context: ContextTypes.DEFAULT_T
                     userbot.has_session = True
                     
                     await update.message.reply_text(
-                        "✅ **AUTHENTICATION SUCCESSFUL!**\n\n"
-                        "Your userbot is now configured and ready to deliver products!\n\n"
-                        "🎯 **What happens now:**\n"
-                        "• When customers buy products, the userbot will send them directly\n"
-                        "• Products are delivered instantly after payment\n"
+                        "✅ **2FA AUTHENTICATION SUCCESSFUL!**\n\n"
+                        f"Authenticated as: **{me.first_name}**\n"
+                        f"Phone: **{me.phone}**\n\n"
+                        "🎯 **Your userbot is ready!**\n"
+                        "• Products will be delivered automatically\n"
+                        "• Direct messages to customers after payment\n"
                         "• No manual intervention needed",
                         parse_mode=ParseMode.MARKDOWN,
                         reply_markup=InlineKeyboardMarkup([[
@@ -579,11 +696,11 @@ async def handle_userbot_message(update: Update, context: ContextTypes.DEFAULT_T
                     del user_sessions[user_id]
                 
             except Exception as e:
-                logger.error(f"Failed to authenticate with code: {e}")
+                logger.error(f"2FA authentication failed: {e}")
                 await update.message.reply_text(
-                    f"❌ **Authentication Failed**\n\n"
+                    f"❌ **2FA Authentication Failed**\n\n"
                     f"Error: {str(e)}\n\n"
-                    f"Please check your verification code and try again.",
+                    f"Please check your 2FA password and try again.",
                     parse_mode=ParseMode.MARKDOWN
                 )
     
