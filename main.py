@@ -463,20 +463,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         # Userbot Admin Handlers
         'userbot_status': userbot_admin.handle_userbot_status,
-        'userbot_connect': userbot_admin.handle_userbot_connect,
-        'userbot_disconnect': userbot_admin.handle_userbot_disconnect,
-        'userbot_settings': userbot_admin.handle_userbot_settings,
-        'userbot_keywords': userbot_admin.handle_userbot_keywords,
-        'userbot_stats': userbot_admin.handle_userbot_stats,
-        'userbot_toggle_reconnect': userbot_admin.handle_userbot_toggle_reconnect,
-        'userbot_toggle_notifications': userbot_admin.handle_userbot_toggle_notifications,
-        'userbot_credentials': userbot_admin.handle_userbot_credentials,
-        'userbot_add_credentials': userbot_admin.handle_userbot_add_credentials,
-        'userbot_update_credentials': userbot_admin.handle_userbot_update_credentials,
-        'userbot_clear_credentials': userbot_admin.handle_userbot_clear_credentials,
-        'userbot_test_connection': userbot_admin.handle_userbot_test_connection,
+        # No old userbot functions needed - they're handled in callback handlers
         
-        # Userbot Credentials Message States
+        # Userbot Message States
         'awaiting_userbot_api_id': userbot_admin.handle_userbot_api_id_message,
         'awaiting_userbot_api_hash': userbot_admin.handle_userbot_api_hash_message,
         'awaiting_userbot_phone': userbot_admin.handle_userbot_phone_message,
