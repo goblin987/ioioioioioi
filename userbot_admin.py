@@ -107,7 +107,7 @@ async def handle_userbot_set_credentials(update: Update, context: ContextTypes.D
             reply_markup=InlineKeyboardMarkup([[
                 InlineKeyboardButton("❌ Cancel", callback_data="userbot_status")
             ]]),
-            parse_mode=ParseMode.MARKDOWN
+            parse_mode=None
         )
         
         logger.info(f"✅ USERBOT ADMIN: Started credential setup for user {user_id}")
@@ -444,7 +444,7 @@ async def handle_userbot_message(update: Update, context: ContextTypes.DEFAULT_T
             if not message_text.isdigit():
                 await update.message.reply_text(
                     "❌ **Invalid API ID**\n\nAPI ID must be a number. Please enter a valid API ID.",
-                    parse_mode=ParseMode.MARKDOWN
+                    parse_mode=None
                 )
                 return
             
@@ -458,13 +458,13 @@ async def handle_userbot_message(update: Update, context: ContextTypes.DEFAULT_T
                 
                 await update.message.reply_text(
                     "✅ **API ID set!**\n\n**Step 2/3: API Hash**\n\nPlease send me the API Hash for this account.\n\n**Get it from:** https://my.telegram.org (same page as API ID)",
-                    parse_mode=ParseMode.MARKDOWN
+                    parse_mode=None
                 )
                 
             except ValueError:
                 await update.message.reply_text(
                     "❌ **Invalid API ID!**\n\nPlease send a valid numeric API ID from https://my.telegram.org",
-                    parse_mode=ParseMode.MARKDOWN
+                    parse_mode=None
                 )
         
         elif session['step'] == 'api_hash':
@@ -472,7 +472,7 @@ async def handle_userbot_message(update: Update, context: ContextTypes.DEFAULT_T
             if not re.match(r'^[a-f0-9]{32}$', message_text.lower()):
                 await update.message.reply_text(
                     "❌ **Invalid API Hash**\n\nAPI Hash must be 32 characters long and contain only letters and numbers.\n\nPlease enter a valid API Hash from https://my.telegram.org",
-                    parse_mode=ParseMode.MARKDOWN
+                    parse_mode=None
                 )
                 return
             
@@ -481,7 +481,7 @@ async def handle_userbot_message(update: Update, context: ContextTypes.DEFAULT_T
             
             await update.message.reply_text(
                 "✅ **API Hash set!**\n\n**Step 3/3: Phone Number**\n\nPlease send me your phone number with country code.\n\n**Example:** +1234567890",
-                parse_mode=ParseMode.MARKDOWN
+                parse_mode=None
             )
         
         elif session['step'] == 'phone_number':
@@ -490,7 +490,7 @@ async def handle_userbot_message(update: Update, context: ContextTypes.DEFAULT_T
             if not re.match(phone_pattern, message_text.replace(' ', '').replace('-', '')):
                 await update.message.reply_text(
                     "❌ **Invalid Phone Number**\n\nPlease enter a valid phone number with country code (e.g., +1234567890).",
-                    parse_mode=ParseMode.MARKDOWN
+                    parse_mode=None
                 )
                 return
             
@@ -501,7 +501,7 @@ async def handle_userbot_message(update: Update, context: ContextTypes.DEFAULT_T
             await update.message.reply_text(
                 "🔐 **Authenticating with Telegram...**\n\n"
                 "Please wait while I connect to your account...",
-                parse_mode=ParseMode.MARKDOWN
+                parse_mode=None
             )
             
             # Create session for this account using Pyrogram (compatible with our userbot)
@@ -530,7 +530,7 @@ async def handle_userbot_message(update: Update, context: ContextTypes.DEFAULT_T
                     "📱 **Verification Code Sent!**\n\n"
                     f"A verification code has been sent to **{phone}**\n\n"
                     "Please enter the verification code you received:",
-                    parse_mode=ParseMode.MARKDOWN
+                    parse_mode=None
                 )
                 
             except Exception as e:
@@ -596,7 +596,7 @@ async def handle_userbot_message(update: Update, context: ContextTypes.DEFAULT_T
                             "• Products will be delivered via direct message\n"
                             "• Automatic delivery after payment\n"
                             "• No manual intervention needed",
-                            parse_mode=ParseMode.MARKDOWN,
+                            parse_mode=None,
                             reply_markup=InlineKeyboardMarkup([[
                                 InlineKeyboardButton("🔙 Back to Status", callback_data="userbot_status")
                             ]])
@@ -610,7 +610,7 @@ async def handle_userbot_message(update: Update, context: ContextTypes.DEFAULT_T
                             "🔧 **Manual connection needed**\n"
                             "• Use 'Connect Userbot' button to retry\n"
                             "• Check userbot status in admin panel",
-                            parse_mode=ParseMode.MARKDOWN,
+                            parse_mode=None,
                             reply_markup=InlineKeyboardMarkup([[
                                 InlineKeyboardButton("🔙 Back to Status", callback_data="userbot_status")
                             ]])
@@ -632,7 +632,7 @@ async def handle_userbot_message(update: Update, context: ContextTypes.DEFAULT_T
                     "🔐 **2FA Required**\n\n"
                     "Your account has Two-Factor Authentication enabled.\n\n"
                     "Please send your 2FA password (Cloud Password):",
-                    parse_mode=ParseMode.MARKDOWN
+                    parse_mode=None
                 )
             except Exception as e:
                 logger.error(f"Failed to authenticate with code: {e}")
@@ -690,7 +690,7 @@ async def handle_userbot_message(update: Update, context: ContextTypes.DEFAULT_T
                             "• Products will be delivered via secret chat\n"
                             "• Direct messages to customers after payment\n"
                             "• No manual intervention needed",
-                            parse_mode=ParseMode.MARKDOWN,
+                            parse_mode=None,
                             reply_markup=InlineKeyboardMarkup([[
                                 InlineKeyboardButton("🔙 Back to Status", callback_data="userbot_status")
                             ]])
@@ -704,7 +704,7 @@ async def handle_userbot_message(update: Update, context: ContextTypes.DEFAULT_T
                             "🔧 **Manual connection needed**\n"
                             "• Use 'Connect Userbot' button to retry\n"
                             "• Check userbot status in admin panel",
-                            parse_mode=ParseMode.MARKDOWN,
+                            parse_mode=None,
                             reply_markup=InlineKeyboardMarkup([[
                                 InlineKeyboardButton("🔙 Back to Status", callback_data="userbot_status")
                             ]])
