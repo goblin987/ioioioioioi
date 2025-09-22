@@ -1157,8 +1157,18 @@ def main() -> None:
     init_db()
     load_all_data()
     
-    # Userbot is managed through admin interface
-    logger.info("ℹ️ USERBOT: Userbot available via admin interface")
+    # Userbot initialization - connect if credentials exist
+    logger.info("ℹ️ USERBOT: Checking userbot configuration...")
+    try:
+        from userbot import userbot
+        if userbot.has_session and userbot.session_string:
+            logger.info("🔄 USERBOT: Found existing session, attempting to connect...")
+            # We'll connect this after the main application is initialized
+        else:
+            logger.info("ℹ️ USERBOT: No session found - userbot available via admin interface")
+    except Exception as e:
+        logger.error(f"❌ USERBOT: Error checking userbot configuration: {e}")
+        logger.info("ℹ️ USERBOT: Userbot available via admin interface")
     defaults = Defaults(parse_mode=None, block=False)
     app_builder = ApplicationBuilder().token(TOKEN).defaults(defaults).job_queue(JobQueue())
     app_builder.post_init(post_init)
@@ -1203,6 +1213,19 @@ def main() -> None:
             return
         await application.start()
         logger.info("Telegram application started (webhook mode).")
+        
+        # Connect userbot if session exists
+        try:
+            from userbot import userbot
+            if userbot.has_session and userbot.session_string:
+                logger.info("🔄 USERBOT: Connecting userbot with existing session...")
+                connect_success, connect_message = await userbot.connect()
+                if connect_success:
+                    logger.info(f"✅ USERBOT: {connect_message}")
+                else:
+                    logger.warning(f"⚠️ USERBOT: Connection failed - {connect_message}")
+        except Exception as e:
+            logger.error(f"❌ USERBOT: Error connecting userbot at startup: {e}")
         port = int(os.environ.get("PORT", 10000))
         flask_thread = threading.Thread(target=lambda: flask_app.run(host='0.0.0.0', port=port, debug=False), daemon=True)
         flask_thread.start()

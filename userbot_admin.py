@@ -555,6 +555,7 @@ async def handle_userbot_message(update: Update, context: ContextTypes.DEFAULT_T
                     # Store session string in userbot
                     userbot.session_string = session_string
                     userbot.has_session = True
+                    userbot._save_configuration()  # Persist the configuration
                     
                     # Connect the userbot for immediate use
                     connect_success, connect_message = await userbot.connect()
@@ -667,6 +668,7 @@ async def handle_userbot_message(update: Update, context: ContextTypes.DEFAULT_T
                     # Store session string in userbot
                     userbot.session_string = session_string
                     userbot.has_session = True
+                    userbot._save_configuration()  # Persist the configuration
                     
                     # Connect the userbot for immediate use
                     connect_success, connect_message = await userbot.connect()

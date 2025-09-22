@@ -3,6 +3,7 @@ Simple Userbot for Product Delivery
 Workflow: Buyer buys product → Payment confirmed → Userbot creates secret chat → Sends product details
 """
 import asyncio
+import json
 import logging
 import os
 import re
@@ -28,6 +29,53 @@ class SimpleUserbot:
         self.api_hash = None
         self.phone_number = None
         self.session_string = None
+        self.has_session = False
+        
+        # Load existing configuration at startup
+        self._load_configuration()
+    
+    def _load_configuration(self):
+        """Load userbot configuration from file"""
+        try:
+            config_file = '/mnt/data/userbot_config.json'
+            if os.path.exists(config_file):
+                with open(config_file, 'r') as f:
+                    config = json.load(f)
+                
+                self.api_id = config.get('api_id')
+                self.api_hash = config.get('api_hash')
+                self.phone_number = config.get('phone_number')
+                self.session_string = config.get('session_string')
+                
+                if self.api_id and self.api_hash and self.phone_number and self.session_string:
+                    self.has_session = True
+                    logger.info(f"✅ USERBOT: Loaded configuration for {self.phone_number}")
+                else:
+                    logger.info("ℹ️ USERBOT: Incomplete configuration found")
+            else:
+                logger.info("ℹ️ USERBOT: No configuration file found")
+                
+        except Exception as e:
+            logger.error(f"❌ USERBOT: Error loading configuration: {e}")
+    
+    def _save_configuration(self):
+        """Save userbot configuration to file"""
+        try:
+            config_file = '/mnt/data/userbot_config.json'
+            config = {
+                'api_id': self.api_id,
+                'api_hash': self.api_hash,
+                'phone_number': self.phone_number,
+                'session_string': self.session_string
+            }
+            
+            with open(config_file, 'w') as f:
+                json.dump(config, f)
+            
+            logger.info("✅ USERBOT: Configuration saved")
+            
+        except Exception as e:
+            logger.error(f"❌ USERBOT: Error saving configuration: {e}")
         
     def set_credentials(self, api_id: int, api_hash: str, phone_number: str) -> Tuple[bool, str]:
         """Set userbot credentials"""
