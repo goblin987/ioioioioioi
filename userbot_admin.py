@@ -3,11 +3,19 @@ Simple Userbot Admin Interface
 Clean and focused on the core workflow
 """
 import logging
+import asyncio
+import os
+import base64
+import re
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
+from telegram.constants import ParseMode
 from userbot import userbot
 
 logger = logging.getLogger(__name__)
+
+# Session storage for userbot authentication
+user_sessions = {}
 
 async def handle_userbot_status(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Show userbot status"""
@@ -67,17 +75,29 @@ async def handle_userbot_set_credentials(update: Update, context: ContextTypes.D
     try:
         await update.callback_query.answer("Setting up credentials...")
         
-        context.user_data['awaiting_userbot_api_id'] = True
+        user_id = update.effective_user.id
+        
+        # Initialize session for this user
+        user_sessions[user_id] = {
+            "step": "api_id",
+            "account_data": {}
+        }
         
         await update.callback_query.edit_message_text(
             "⚙️ **SET USERBOT CREDENTIALS**\n\n"
-            "Step 1/3: Send your API ID (number only)\n\n"
+            "**Step 1/3: Send your API ID**\n\n"
             "Get it from: https://my.telegram.org\n"
+            "• Go to 'API development tools'\n"
+            "• Create a new application\n"
+            "• Copy your API ID\n\n"
             "Example: 12345678",
             reply_markup=InlineKeyboardMarkup([[
                 InlineKeyboardButton("❌ Cancel", callback_data="userbot_status")
-            ]])
+            ]]),
+            parse_mode=ParseMode.MARKDOWN
         )
+        
+        logger.info(f"✅ USERBOT ADMIN: Started credential setup for user {user_id}")
         
     except Exception as e:
         logger.error(f"❌ USERBOT ADMIN: Error setting credentials: {e}")
@@ -371,6 +391,208 @@ async def handle_userbot_2fa_password_message(update: Update, context: ContextTy
     except Exception as e:
         logger.error(f"❌ USERBOT ADMIN: Error handling 2FA password: {e}")
         await update.message.reply_text("❌ Error processing 2FA password. Please try again.")
+
+async def handle_userbot_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle incoming messages for userbot authentication (session-based)"""
+    user_id = update.effective_user.id
+    
+    if user_id not in user_sessions:
+        return
+    
+    session = user_sessions[user_id]
+    message_text = update.message.text.strip() if update.message.text else ""
+    
+    logger.info(f"🔍 USERBOT SESSION: User {user_id}, step: {session.get('step', 'unknown')}, message: {message_text}")
+    
+    try:
+        # Handle account authentication steps
+        if session['step'] == 'api_id':
+            # Validate API ID (should be numeric)
+            if not message_text.isdigit():
+                await update.message.reply_text(
+                    "❌ **Invalid API ID**\n\nAPI ID must be a number. Please enter a valid API ID.",
+                    parse_mode=ParseMode.MARKDOWN
+                )
+                return
+            
+            try:
+                api_id = int(message_text)
+                if api_id <= 0:
+                    raise ValueError("API ID must be positive")
+                
+                session['account_data']['api_id'] = str(api_id)
+                session['step'] = 'api_hash'
+                
+                await update.message.reply_text(
+                    "✅ **API ID set!**\n\n**Step 2/3: API Hash**\n\nPlease send me the API Hash for this account.\n\n**Get it from:** https://my.telegram.org (same page as API ID)",
+                    parse_mode=ParseMode.MARKDOWN
+                )
+                
+            except ValueError:
+                await update.message.reply_text(
+                    "❌ **Invalid API ID!**\n\nPlease send a valid numeric API ID from https://my.telegram.org",
+                    parse_mode=ParseMode.MARKDOWN
+                )
+        
+        elif session['step'] == 'api_hash':
+            # Validate API Hash format (should be alphanumeric, 32 characters)
+            if not re.match(r'^[a-f0-9]{32}$', message_text.lower()):
+                await update.message.reply_text(
+                    "❌ **Invalid API Hash**\n\nAPI Hash must be 32 characters long and contain only letters and numbers.\n\nPlease enter a valid API Hash from https://my.telegram.org",
+                    parse_mode=ParseMode.MARKDOWN
+                )
+                return
+            
+            session['account_data']['api_hash'] = message_text
+            session['step'] = 'phone_number'
+            
+            await update.message.reply_text(
+                "✅ **API Hash set!**\n\n**Step 3/3: Phone Number**\n\nPlease send me your phone number with country code.\n\n**Example:** +1234567890",
+                parse_mode=ParseMode.MARKDOWN
+            )
+        
+        elif session['step'] == 'phone_number':
+            # Validate phone number format
+            phone_pattern = r'^\+?[1-9]\d{1,14}$'
+            if not re.match(phone_pattern, message_text.replace(' ', '').replace('-', '')):
+                await update.message.reply_text(
+                    "❌ **Invalid Phone Number**\n\nPlease enter a valid phone number with country code (e.g., +1234567890).",
+                    parse_mode=ParseMode.MARKDOWN
+                )
+                return
+            
+            session['account_data']['phone_number'] = message_text
+            session['step'] = 'authenticating'
+            
+            # Now authenticate with Telegram to create a session
+            await update.message.reply_text(
+                "🔐 **Authenticating with Telegram...**\n\n"
+                "Please wait while I connect to your account...",
+                parse_mode=ParseMode.MARKDOWN
+            )
+            
+            # Create session for this account using Telethon
+            from telethon import TelegramClient
+            
+            try:
+                api_id = int(session['account_data']['api_id'])
+                api_hash = session['account_data']['api_hash']
+                phone = session['account_data']['phone_number']
+                
+                # Create a unique session name
+                session_name = f"userbot_{user_id}_{int(asyncio.get_event_loop().time())}"
+                client = TelegramClient(session_name, api_id, api_hash)
+                
+                await client.connect()
+                
+                # Request verification code
+                await client.send_code_request(phone)
+                
+                session['client'] = client
+                session['session_name'] = session_name
+                session['step'] = 'verification_code'
+                
+                await update.message.reply_text(
+                    "📱 **Verification Code Sent!**\n\n"
+                    f"A verification code has been sent to **{phone}**\n\n"
+                    "Please enter the verification code you received:",
+                    parse_mode=ParseMode.MARKDOWN
+                )
+                
+            except Exception as e:
+                logger.error(f"Failed to start authentication: {e}")
+                if user_id in user_sessions:
+                    del user_sessions[user_id]
+                await update.message.reply_text(
+                    f"❌ **Authentication Failed**\n\n"
+                    f"Error: {str(e)}\n\n"
+                    f"Please check your API credentials and try again.",
+                    parse_mode=ParseMode.MARKDOWN
+                )
+        
+        elif session['step'] == 'verification_code':
+            # Handle verification code
+            code = message_text.strip()
+            client = session.get('client')
+            
+            if not client:
+                await update.message.reply_text("❌ Session expired. Please start over.")
+                if user_id in user_sessions:
+                    del user_sessions[user_id]
+                return
+            
+            try:
+                # Sign in with the code
+                await client.sign_in(session['account_data']['phone_number'], code)
+                
+                # Get session string - save the actual session file content
+                session_file_path = f"{session['session_name']}.session"
+                
+                # Save the session to ensure it's written to disk
+                await client.disconnect()
+                await client.connect()
+                
+                # Read the session file and encode it
+                with open(session_file_path, 'rb') as f:
+                    session_data = f.read()
+                session_string = base64.b64encode(session_data).decode('utf-8')
+                
+                # Set credentials in our userbot
+                api_id = int(session['account_data']['api_id'])
+                api_hash = session['account_data']['api_hash']
+                phone = session['account_data']['phone_number']
+                
+                success, message = await userbot.set_credentials(api_id, api_hash, phone)
+                
+                if success:
+                    # Store session string in userbot
+                    userbot.session_string = session_string
+                    userbot.has_session = True
+                    
+                    await update.message.reply_text(
+                        "✅ **AUTHENTICATION SUCCESSFUL!**\n\n"
+                        "Your userbot is now configured and ready to deliver products!\n\n"
+                        "🎯 **What happens now:**\n"
+                        "• When customers buy products, the userbot will send them directly\n"
+                        "• Products are delivered instantly after payment\n"
+                        "• No manual intervention needed",
+                        parse_mode=ParseMode.MARKDOWN,
+                        reply_markup=InlineKeyboardMarkup([[
+                            InlineKeyboardButton("🔙 Back to Status", callback_data="userbot_status")
+                        ]])
+                    )
+                else:
+                    await update.message.reply_text(f"❌ Error setting credentials: {message}")
+                
+                # Disconnect client and cleanup
+                await client.disconnect()
+                
+                # Clean up session file
+                try:
+                    if os.path.exists(session_file_path):
+                        os.remove(session_file_path)
+                except:
+                    pass
+                
+                # Clear session
+                if user_id in user_sessions:
+                    del user_sessions[user_id]
+                
+            except Exception as e:
+                logger.error(f"Failed to authenticate with code: {e}")
+                await update.message.reply_text(
+                    f"❌ **Authentication Failed**\n\n"
+                    f"Error: {str(e)}\n\n"
+                    f"Please check your verification code and try again.",
+                    parse_mode=ParseMode.MARKDOWN
+                )
+    
+    except Exception as e:
+        logger.error(f"Error in userbot message handler: {e}", exc_info=True)
+        await update.message.reply_text(
+            "❌ **Error processing your message**\n\nPlease try again or contact support.",
+            parse_mode=ParseMode.MARKDOWN
+        )
 
 def get_userbot_handlers():
     """Get userbot admin handlers"""

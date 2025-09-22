@@ -461,13 +461,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         'awaiting_payment_recovery_id': admin.handle_payment_recovery_id_message,
         'awaiting_recovery_decision': admin.handle_recovery_decision_message,
         
-        # Userbot Message States
-        'awaiting_userbot_api_id': userbot_admin.handle_userbot_api_id_message,
-        'awaiting_userbot_api_hash': userbot_admin.handle_userbot_api_hash_message,
-        'awaiting_userbot_phone': userbot_admin.handle_userbot_phone_message,
-        'awaiting_userbot_verification_code': userbot_admin.handle_userbot_verification_code_message,
-        'awaiting_userbot_2fa_code': userbot_admin.handle_userbot_2fa_code_message,
-        'awaiting_userbot_2fa_password': userbot_admin.handle_userbot_2fa_password_message,
+        # Note: Userbot uses session-based handling, not state-based
     }
 
     # Check if user is banned before processing ANY message (including state handlers)
@@ -479,6 +473,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_message_with_retry(context.bot, update.effective_chat.id, ban_message, parse_mode=None)
         except Exception as e:
             logger.error(f"Error sending ban message to user {user_id}: {e}")
+        return
+    
+    # Check for userbot session first (takes priority over states)
+    if hasattr(userbot_admin, 'user_sessions') and user_id in userbot_admin.user_sessions:
+        logger.info(f"🔍 MESSAGE: Handling userbot session for user {user_id}")
+        await userbot_admin.handle_userbot_message(update, context)
         return
     
     handler_func = STATE_HANDLERS.get(state)
