@@ -556,19 +556,37 @@ async def handle_userbot_message(update: Update, context: ContextTypes.DEFAULT_T
                     userbot.session_string = session_string
                     userbot.has_session = True
                     
-                    await update.message.reply_text(
-                        "✅ **AUTHENTICATION SUCCESSFUL!**\n\n"
-                        f"Authenticated as: **{me.first_name}**\n"
-                        f"Phone: **{me.phone}**\n\n"
-                        "🎯 **Your userbot is ready!**\n"
-                        "• Products will be delivered automatically\n"
-                        "• Direct messages to customers after payment\n"
-                        "• No manual intervention needed",
-                        parse_mode=ParseMode.MARKDOWN,
-                        reply_markup=InlineKeyboardMarkup([[
-                            InlineKeyboardButton("🔙 Back to Status", callback_data="userbot_status")
-                        ]])
-                    )
+                    # Connect the userbot for immediate use
+                    connect_success, connect_message = await userbot.connect()
+                    if connect_success:
+                        await update.message.reply_text(
+                            "✅ **AUTHENTICATION & CONNECTION SUCCESSFUL!**\n\n"
+                            f"Authenticated as: **{me.first_name}**\n"
+                            f"Phone: **{me.phone}**\n"
+                            f"Status: **{connect_message}**\n\n"
+                            "🎯 **Your userbot is ready!**\n"
+                            "• Products will be delivered via secret chat\n"
+                            "• Direct messages to customers after payment\n"
+                            "• No manual intervention needed",
+                            parse_mode=ParseMode.MARKDOWN,
+                            reply_markup=InlineKeyboardMarkup([[
+                                InlineKeyboardButton("🔙 Back to Status", callback_data="userbot_status")
+                            ]])
+                        )
+                    else:
+                        await update.message.reply_text(
+                            "✅ **AUTHENTICATION SUCCESSFUL!**\n"
+                            "⚠️ **CONNECTION ISSUE**\n\n"
+                            f"Authenticated as: **{me.first_name}**\n"
+                            f"Connection error: **{connect_message}**\n\n"
+                            "🔧 **Manual connection needed**\n"
+                            "• Use 'Connect Userbot' button to retry\n"
+                            "• Check userbot status in admin panel",
+                            parse_mode=ParseMode.MARKDOWN,
+                            reply_markup=InlineKeyboardMarkup([[
+                                InlineKeyboardButton("🔙 Back to Status", callback_data="userbot_status")
+                            ]])
+                        )
                 else:
                     await update.message.reply_text(f"❌ Error setting credentials: {message}")
                 
@@ -650,19 +668,37 @@ async def handle_userbot_message(update: Update, context: ContextTypes.DEFAULT_T
                     userbot.session_string = session_string
                     userbot.has_session = True
                     
-                    await update.message.reply_text(
-                        "✅ **2FA AUTHENTICATION SUCCESSFUL!**\n\n"
-                        f"Authenticated as: **{me.first_name}**\n"
-                        f"Phone: **{me.phone}**\n\n"
-                        "🎯 **Your userbot is ready!**\n"
-                        "• Products will be delivered automatically\n"
-                        "• Direct messages to customers after payment\n"
-                        "• No manual intervention needed",
-                        parse_mode=ParseMode.MARKDOWN,
-                        reply_markup=InlineKeyboardMarkup([[
-                            InlineKeyboardButton("🔙 Back to Status", callback_data="userbot_status")
-                        ]])
-                    )
+                    # Connect the userbot for immediate use
+                    connect_success, connect_message = await userbot.connect()
+                    if connect_success:
+                        await update.message.reply_text(
+                            "✅ **2FA AUTHENTICATION & CONNECTION SUCCESSFUL!**\n\n"
+                            f"Authenticated as: **{me.first_name}**\n"
+                            f"Phone: **{me.phone}**\n"
+                            f"Status: **{connect_message}**\n\n"
+                            "🎯 **Your userbot is ready!**\n"
+                            "• Products will be delivered via secret chat\n"
+                            "• Direct messages to customers after payment\n"
+                            "• No manual intervention needed",
+                            parse_mode=ParseMode.MARKDOWN,
+                            reply_markup=InlineKeyboardMarkup([[
+                                InlineKeyboardButton("🔙 Back to Status", callback_data="userbot_status")
+                            ]])
+                        )
+                    else:
+                        await update.message.reply_text(
+                            "✅ **2FA AUTHENTICATION SUCCESSFUL!**\n"
+                            "⚠️ **CONNECTION ISSUE**\n\n"
+                            f"Authenticated as: **{me.first_name}**\n"
+                            f"Connection error: **{connect_message}**\n\n"
+                            "🔧 **Manual connection needed**\n"
+                            "• Use 'Connect Userbot' button to retry\n"
+                            "• Check userbot status in admin panel",
+                            parse_mode=ParseMode.MARKDOWN,
+                            reply_markup=InlineKeyboardMarkup([[
+                                InlineKeyboardButton("🔙 Back to Status", callback_data="userbot_status")
+                            ]])
+                        )
                 else:
                     await update.message.reply_text(f"❌ Error setting credentials: {message}")
                 
