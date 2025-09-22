@@ -48,12 +48,7 @@ from utils import (
 )
 
 # --- Userbot Imports ---
-from userbot_manager import userbot_manager
-from userbot_database import init_userbot_tables
-from userbot_config import userbot_config
-from userbot_admin import get_userbot_admin_handlers
 import userbot_admin
-import simple_userbot_admin
 import user # Import user module
 from user import (
     start, handle_shop, handle_city_selection, handle_district_selection,
@@ -334,36 +329,14 @@ def callback_query_router(func):
                 "manual_payment_recovery": admin.handle_manual_payment_recovery,
                 
                 # Userbot Admin Callback Handlers
+                # Clean Userbot Handlers
                 "userbot_status": userbot_admin.handle_userbot_status,
+                "userbot_set_credentials": userbot_admin.handle_userbot_set_credentials,
+                "userbot_authenticate": userbot_admin.handle_userbot_authenticate,
+                "userbot_authenticate_2fa": userbot_admin.handle_userbot_authenticate_2fa,
                 "userbot_connect": userbot_admin.handle_userbot_connect,
                 "userbot_disconnect": userbot_admin.handle_userbot_disconnect,
-                "userbot_settings": userbot_admin.handle_userbot_settings,
-                "userbot_keywords": userbot_admin.handle_userbot_keywords,
-                "userbot_stats": userbot_admin.handle_userbot_stats,
-                "userbot_toggle_reconnect": userbot_admin.handle_userbot_toggle_reconnect,
-                "userbot_toggle_notifications": userbot_admin.handle_userbot_toggle_notifications,
-                "userbot_credentials": userbot_admin.handle_userbot_credentials,
-                "userbot_add_credentials": userbot_admin.handle_userbot_add_credentials,
-                "userbot_update_credentials": userbot_admin.handle_userbot_update_credentials,
-                "userbot_clear_credentials": userbot_admin.handle_userbot_clear_credentials,
-                "userbot_test_connection": userbot_admin.handle_userbot_test_connection,
-                
-                # Simple Userbot Handlers
-                "simple_userbot_status": simple_userbot_admin.handle_simple_userbot_status,
-                "simple_userbot_set_credentials": simple_userbot_admin.handle_simple_userbot_set_credentials,
-                "simple_userbot_authenticate": simple_userbot_admin.handle_simple_userbot_authenticate,
-                "simple_userbot_connect": simple_userbot_admin.handle_simple_userbot_connect,
-                "simple_userbot_disconnect": simple_userbot_admin.handle_simple_userbot_disconnect,
-                "simple_userbot_test": simple_userbot_admin.handle_simple_userbot_test,
-                
-                # Improved Simple Userbot Handlers
-                "improved_simple_userbot_status": simple_userbot_admin.handle_improved_simple_userbot_status,
-                "improved_simple_userbot_set_credentials": simple_userbot_admin.handle_improved_simple_userbot_set_credentials,
-                "improved_simple_userbot_authenticate": simple_userbot_admin.handle_improved_simple_userbot_authenticate,
-                "improved_simple_userbot_authenticate_2fa": simple_userbot_admin.handle_improved_simple_userbot_authenticate_2fa,
-                "improved_simple_userbot_connect": simple_userbot_admin.handle_improved_simple_userbot_connect,
-                "improved_simple_userbot_disconnect": simple_userbot_admin.handle_improved_simple_userbot_disconnect,
-                "improved_simple_userbot_test": simple_userbot_admin.handle_improved_simple_userbot_test,
+                "userbot_test": userbot_admin.handle_userbot_test,
             }
 
             target_func = KNOWN_HANDLERS.get(command)
@@ -507,16 +480,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         'awaiting_userbot_api_id': userbot_admin.handle_userbot_api_id_message,
         'awaiting_userbot_api_hash': userbot_admin.handle_userbot_api_hash_message,
         'awaiting_userbot_phone': userbot_admin.handle_userbot_phone_message,
-        'awaiting_userbot_photo_code': userbot_admin.handle_userbot_photo_code_message,
-        'awaiting_userbot_2fa_code': userbot_admin.handle_userbot_2fa_code_message,
         'awaiting_userbot_verification_code': userbot_admin.handle_userbot_verification_code_message,
+        'awaiting_userbot_2fa_code': userbot_admin.handle_userbot_2fa_code_message,
         'awaiting_userbot_2fa_password': userbot_admin.handle_userbot_2fa_password_message,
-        'awaiting_simple_api_id': simple_userbot_admin.handle_simple_api_id_message,
-        'awaiting_simple_api_hash': simple_userbot_admin.handle_simple_api_hash_message,
-        'awaiting_simple_phone': simple_userbot_admin.handle_simple_phone_message,
-        'awaiting_simple_verification_code': simple_userbot_admin.handle_simple_verification_code_message,
-        'awaiting_improved_simple_2fa_code': simple_userbot_admin.handle_improved_simple_2fa_code_message,
-        'awaiting_improved_simple_2fa_password': simple_userbot_admin.handle_improved_simple_2fa_password_message,
     }
 
     # Check if user is banned before processing ANY message (including state handlers)
@@ -1200,11 +1166,10 @@ def main() -> None:
     global telegram_app, main_loop
     logger.info("Starting bot...")
     init_db()
-    init_userbot_tables()  # Initialize userbot tables
     load_all_data()
     
-    # Simple userbot is managed through admin interface
-    logger.info("ℹ️ USERBOT: Simple userbot available via admin interface")
+    # Userbot is managed through admin interface
+    logger.info("ℹ️ USERBOT: Userbot available via admin interface")
     defaults = Defaults(parse_mode=None, block=False)
     app_builder = ApplicationBuilder().token(TOKEN).defaults(defaults).job_queue(JobQueue())
     app_builder.post_init(post_init)

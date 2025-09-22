@@ -1,591 +1,232 @@
+"""
+Simple Userbot Admin Interface
+Clean and focused on the core workflow
+"""
 import logging
-from datetime import datetime, timezone
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
-
-from userbot_manager import userbot_manager
-from userbot_database import (
-    get_userbot_setting, set_userbot_setting, 
-    get_delivery_keywords, add_delivery_keyword, remove_delivery_keyword,
-    get_userbot_stats, log_userbot_activity,
-    get_userbot_credentials, set_userbot_credentials, clear_userbot_credentials,
-    set_userbot_auth_state, get_userbot_auth_state, clear_userbot_auth_state
-)
-from userbot_config import userbot_config
+from userbot import userbot
 
 logger = logging.getLogger(__name__)
 
 async def handle_userbot_status(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
-    """Show userbot status and controls"""
+    """Show userbot status"""
     try:
-        # Get current status
-        status = userbot_manager.get_status()
-        config_summary = userbot_config.get_config_summary()
-        stats = get_userbot_stats()
+        status = userbot.get_status()
         
         # Build status message
         status_text = "🤖 **USERBOT STATUS**\n\n"
         
-        # Configuration status
-        if config_summary['enabled']:
-            if config_summary['configured']:
-                status_text += "✅ **Status**: Enabled & Configured\n"
-            else:
-                status_text += "⚠️ **Status**: Enabled but Not Configured\n"
-        else:
-            status_text += "❌ **Status**: Disabled\n"
-        
-        # Credentials status
-        credentials = get_userbot_credentials()
-        if credentials:
-            status_text += f"🔐 **Credentials**: Configured (API ID: {credentials.get('api_id', 'N/A')})\n"
-        else:
-            status_text += "🔐 **Credentials**: Not Set\n"
-        
         # Connection status
         if status['connected']:
-            status_text += "🟢 **Connection**: Connected\n"
+            status_text += "🟢 **Status**: Connected & Ready\n"
         else:
-            status_text += "🔴 **Connection**: Disconnected\n"
-            if config_summary['configured']:
-                # Check for specific authentication issues
-                auth_state = get_userbot_auth_state(1)  # Admin user ID
-                if auth_state:
-                    if auth_state['auth_step'] == 'phone_code_invalid':
-                        status_text += "📱 **Issue**: Invalid verification code - try again\n"
-                    elif auth_state['auth_step'] == 'verification_code_required':
-                        status_text += "📱 **Issue**: Verification code required - check your phone\n"
-                    elif auth_state['auth_step'] == '2fa_required':
-                        status_text += "🔐 **Issue**: 2FA password required\n"
-                    elif auth_state['auth_step'] == 'session_expired':
-                        status_text += "🔄 **Issue**: Session expired - re-authentication needed\n"
-                    else:
-                        status_text += "⚠️ **Issue**: Authentication required - products sent to bot chat\n"
-                else:
-                    status_text += "⚠️ **Issue**: Authentication required - products sent to bot chat\n"
+            status_text += "🔴 **Status**: Disconnected\n"
         
-        # Statistics
-        status_text += f"\n📊 **Statistics**\n"
-        status_text += f"• Active Secret Chats: {stats.get('active_secret_chats', 0)}\n"
-        status_text += f"• Total Deliveries: {stats.get('total_deliveries', 0)}\n"
-        status_text += f"• Recent Deliveries (24h): {stats.get('recent_deliveries', 0)}\n"
-        status_text += f"• Pending Deliveries: {status['pending_deliveries']}\n"
+        # Credentials status
+        if status['has_credentials']:
+            status_text += f"✅ **Phone**: {status['phone_number']}\n"
+        else:
+            status_text += "❌ **Credentials**: Not Set\n"
         
-        # Retry information
-        if status['retries'] > 0:
-            status_text += f"\n🔄 **Retries**: {status['retries']}/{status['max_retries']}\n"
+        # Session status
+        if status['has_session']:
+            status_text += "📱 **Session**: Active\n"
+        else:
+            status_text += "📱 **Session**: Not Available\n"
         
-        # Create control buttons
+        # Create buttons based on status
         keyboard = []
         
-        if config_summary['enabled']:
-            if status['connected']:
-                keyboard.append([InlineKeyboardButton("🔌 Disconnect", callback_data="userbot_disconnect")])
+        if not status['has_credentials']:
+            keyboard.append([InlineKeyboardButton("⚙️ Set Credentials", callback_data="userbot_set_credentials")])
+        elif not status['connected']:
+            if status['has_session']:
+                keyboard.append([InlineKeyboardButton("🔌 Connect", callback_data="userbot_connect")])
             else:
-                # Check for specific authentication issues
-                auth_state = get_userbot_auth_state(1)  # Admin user ID
-                if auth_state:
-                    if auth_state['auth_step'] == 'phone_code_invalid':
-                        keyboard.append([InlineKeyboardButton("📱 Enter Verification Code", callback_data="userbot_enter_verification_code")])
-                    elif auth_state['auth_step'] == 'verification_code_required':
-                        keyboard.append([InlineKeyboardButton("📱 Enter Verification Code", callback_data="userbot_enter_verification_code")])
-                    elif auth_state['auth_step'] == '2fa_required':
-                        keyboard.append([InlineKeyboardButton("🔐 Enter 2FA Password", callback_data="userbot_enter_2fa_password")])
-                    elif auth_state['auth_step'] == 'session_expired':
-                        keyboard.append([InlineKeyboardButton("🔄 Reconnect", callback_data="userbot_connect")])
-                    else:
-                        keyboard.append([InlineKeyboardButton("🔌 Connect", callback_data="userbot_connect")])
-                else:
-                    keyboard.append([InlineKeyboardButton("🔌 Connect", callback_data="userbot_connect")])
-            
-            keyboard.append([InlineKeyboardButton("⚙️ Settings", callback_data="userbot_settings")])
-            keyboard.append([InlineKeyboardButton("📋 Keywords", callback_data="userbot_keywords")])
-            keyboard.append([InlineKeyboardButton("📊 Statistics", callback_data="userbot_stats")])
+                keyboard.append([InlineKeyboardButton("🔐 Authenticate", callback_data="userbot_authenticate")])
+                keyboard.append([InlineKeyboardButton("🔐 Authenticate with 2FA", callback_data="userbot_authenticate_2fa")])
         else:
-            keyboard.append([InlineKeyboardButton("⚙️ Configure", callback_data="userbot_configure")])
+            keyboard.append([InlineKeyboardButton("🔌 Disconnect", callback_data="userbot_disconnect")])
+            keyboard.append([InlineKeyboardButton("🧪 Test Delivery", callback_data="userbot_test")])
         
-        # Add credentials management button
-        keyboard.append([InlineKeyboardButton("🔐 Manage Credentials", callback_data="userbot_credentials")])
-        keyboard.append([InlineKeyboardButton("🔙 Back to Admin", callback_data="admin_panel")])
-        
-        reply_markup = InlineKeyboardMarkup(keyboard)
+        keyboard.append([InlineKeyboardButton("🔙 Back to Admin", callback_data="admin_menu")])
         
         await update.callback_query.edit_message_text(
             status_text,
-            parse_mode='Markdown',
-            reply_markup=reply_markup
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode='Markdown'
         )
-        
-        # Log activity
-        log_userbot_activity("status_viewed", update.effective_user.id, "Admin viewed userbot status")
         
     except Exception as e:
         logger.error(f"❌ USERBOT ADMIN: Error showing status: {e}")
-        await update.callback_query.answer("Error showing userbot status", show_alert=True)
+        await update.callback_query.answer("Error showing status", show_alert=True)
+
+async def handle_userbot_set_credentials(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
+    """Start credential setup process"""
+    try:
+        await update.callback_query.answer("Setting up credentials...")
+        
+        context.user_data['awaiting_userbot_api_id'] = True
+        
+        await update.callback_query.edit_message_text(
+            "⚙️ **SET USERBOT CREDENTIALS**\n\n"
+            "Step 1/3: Send your API ID (number only)\n\n"
+            "Get it from: https://my.telegram.org\n"
+            "Example: 12345678",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("❌ Cancel", callback_data="userbot_status")
+            ]])
+        )
+        
+    except Exception as e:
+        logger.error(f"❌ USERBOT ADMIN: Error setting credentials: {e}")
+        await update.callback_query.answer("Error setting credentials", show_alert=True)
+
+async def handle_userbot_authenticate(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
+    """Start authentication process"""
+    try:
+        await update.callback_query.answer("Starting authentication...")
+        
+        await update.callback_query.edit_message_text(
+            "🔐 **AUTHENTICATION**\n\n"
+            "Check your phone for a verification code from Telegram.\n\n"
+            "Send the code as a message to this bot.",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("🔙 Back to Status", callback_data="userbot_status")
+            ]])
+        )
+        
+        context.user_data['awaiting_userbot_verification_code'] = True
+        
+    except Exception as e:
+        logger.error(f"❌ USERBOT ADMIN: Error starting authentication: {e}")
+        await update.callback_query.answer("Error starting authentication", show_alert=True)
+
+async def handle_userbot_authenticate_2fa(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
+    """Start 2FA authentication process"""
+    try:
+        await update.callback_query.answer("Starting 2FA authentication...")
+        
+        await update.callback_query.edit_message_text(
+            "🔐 **2FA AUTHENTICATION**\n\n"
+            "Step 1: Check your phone for a verification code.\n\n"
+            "Send the verification code as a message to this bot.",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("🔙 Back to Status", callback_data="userbot_status")
+            ]])
+        )
+        
+        context.user_data['awaiting_userbot_2fa_code'] = True
+        
+    except Exception as e:
+        logger.error(f"❌ USERBOT ADMIN: Error starting 2FA authentication: {e}")
+        await update.callback_query.answer("Error starting 2FA authentication", show_alert=True)
 
 async def handle_userbot_connect(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Connect userbot"""
     try:
-        await update.callback_query.answer("Connecting userbot...")
+        await update.callback_query.answer("Connecting...")
         
-        # Initialize userbot
-        success = await userbot_manager.initialize()
+        success, message = await userbot.connect()
         
         if success:
-            await update.callback_query.answer("✅ Userbot connected successfully!")
-            log_userbot_activity("connected", update.effective_user.id, "Admin connected userbot")
+            await update.callback_query.edit_message_text(
+                f"✅ **USERBOT CONNECTED!**\n\n{message}\n\nThe userbot is ready to deliver products.",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("🔙 Back to Status", callback_data="userbot_status")
+                ]])
+            )
         else:
-            await update.callback_query.answer("❌ Failed to connect userbot", show_alert=True)
-            log_userbot_activity("connect_failed", update.effective_user.id, "Admin failed to connect userbot")
-        
-        # Refresh status
-        await handle_userbot_status(update, context)
+            await update.callback_query.edit_message_text(
+                f"❌ **CONNECTION FAILED**\n\n{message}",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("🔄 Try Again", callback_data="userbot_connect"),
+                    InlineKeyboardButton("🔙 Back to Status", callback_data="userbot_status")
+                ]])
+            )
         
     except Exception as e:
         logger.error(f"❌ USERBOT ADMIN: Error connecting: {e}")
-        await update.callback_query.answer("Error connecting userbot", show_alert=True)
+        await update.callback_query.answer("Error connecting", show_alert=True)
 
 async def handle_userbot_disconnect(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Disconnect userbot"""
     try:
-        await update.callback_query.answer("Disconnecting userbot...")
+        await update.callback_query.answer("Disconnecting...")
         
-        await userbot_manager.disconnect()
+        success, message = await userbot.disconnect()
         
-        await update.callback_query.answer("✅ Userbot disconnected")
-        log_userbot_activity("disconnected", update.effective_user.id, "Admin disconnected userbot")
-        
-        # Refresh status
-        await handle_userbot_status(update, context)
+        await update.callback_query.edit_message_text(
+            f"✅ **USERBOT DISCONNECTED**\n\n{message}",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("🔙 Back to Status", callback_data="userbot_status")
+            ]])
+        )
         
     except Exception as e:
         logger.error(f"❌ USERBOT ADMIN: Error disconnecting: {e}")
-        await update.callback_query.answer("Error disconnecting userbot", show_alert=True)
+        await update.callback_query.answer("Error disconnecting", show_alert=True)
 
-async def handle_userbot_settings(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
-    """Show userbot settings"""
+async def handle_userbot_test(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
+    """Test userbot delivery"""
     try:
-        # Get current settings
-        auto_reconnect = get_userbot_setting('auto_reconnect', 'true')
-        max_retries = get_userbot_setting('max_retries', '3')
-        retry_delay = get_userbot_setting('retry_delay', '5')
-        secret_chat_ttl = get_userbot_setting('secret_chat_ttl', '86400')
-        delivery_notification = get_userbot_setting('delivery_notification', 'true')
+        await update.callback_query.answer("Testing delivery...")
         
-        settings_text = "⚙️ **USERBOT SETTINGS**\n\n"
-        settings_text += f"🔄 **Auto Reconnect**: {'✅' if auto_reconnect == 'true' else '❌'}\n"
-        settings_text += f"🔁 **Max Retries**: {max_retries}\n"
-        settings_text += f"⏱️ **Retry Delay**: {retry_delay}s\n"
-        settings_text += f"⏰ **Secret Chat TTL**: {int(secret_chat_ttl) // 3600}h\n"
-        settings_text += f"📨 **Delivery Notifications**: {'✅' if delivery_notification == 'true' else '❌'}\n"
+        # Test product data
+        test_product = {
+            'product_name': 'Test Product',
+            'product_type': 'Test Type',
+            'city': 'Test City',
+            'district': 'Test District',
+            'size': 'Medium',
+            'price': '10.00'
+        }
         
-        # Create settings buttons
-        keyboard = [
-            [InlineKeyboardButton("🔄 Toggle Auto Reconnect", callback_data="userbot_toggle_reconnect")],
-            [InlineKeyboardButton("🔁 Set Max Retries", callback_data="userbot_set_retries")],
-            [InlineKeyboardButton("⏱️ Set Retry Delay", callback_data="userbot_set_delay")],
-            [InlineKeyboardButton("⏰ Set Chat TTL", callback_data="userbot_set_ttl")],
-            [InlineKeyboardButton("📨 Toggle Notifications", callback_data="userbot_toggle_notifications")],
-            [InlineKeyboardButton("🔙 Back to Status", callback_data="userbot_status")]
-        ]
-        
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await update.callback_query.edit_message_text(
-            settings_text,
-            parse_mode='Markdown',
-            reply_markup=reply_markup
-        )
-        
-    except Exception as e:
-        logger.error(f"❌ USERBOT ADMIN: Error showing settings: {e}")
-        await update.callback_query.answer("Error showing settings", show_alert=True)
-
-async def handle_userbot_keywords(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
-    """Show and manage delivery keywords"""
-    try:
-        keywords = get_delivery_keywords()
-        
-        keywords_text = "🔑 **DELIVERY KEYWORDS**\n\n"
-        keywords_text += "Users can trigger product delivery by sending any of these keywords:\n\n"
-        
-        for i, keyword in enumerate(keywords, 1):
-            keywords_text += f"{i}. `{keyword}`\n"
-        
-        if not keywords:
-            keywords_text += "No keywords configured.\n"
-        
-        keywords_text += f"\nTotal: {len(keywords)} keywords"
-        
-        # Create keyword management buttons
-        keyboard = [
-            [InlineKeyboardButton("➕ Add Keyword", callback_data="userbot_add_keyword")],
-            [InlineKeyboardButton("➖ Remove Keyword", callback_data="userbot_remove_keyword")],
-            [InlineKeyboardButton("🔄 Refresh", callback_data="userbot_keywords")],
-            [InlineKeyboardButton("🔙 Back to Status", callback_data="userbot_status")]
-        ]
-        
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await update.callback_query.edit_message_text(
-            keywords_text,
-            parse_mode='Markdown',
-            reply_markup=reply_markup
-        )
-        
-    except Exception as e:
-        logger.error(f"❌ USERBOT ADMIN: Error showing keywords: {e}")
-        await update.callback_query.answer("Error showing keywords", show_alert=True)
-
-async def handle_userbot_stats(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
-    """Show detailed userbot statistics"""
-    try:
-        stats = get_userbot_stats()
-        status = userbot_manager.get_status()
-        
-        stats_text = "📊 **USERBOT STATISTICS**\n\n"
-        
-        # Connection stats
-        stats_text += "🔌 **Connection**\n"
-        stats_text += f"• Status: {'🟢 Connected' if status['connected'] else '🔴 Disconnected'}\n"
-        stats_text += f"• Retries: {status['retries']}/{status['max_retries']}\n"
-        if status['last_connection_attempt']:
-            stats_text += f"• Last Attempt: {status['last_connection_attempt']}\n"
-        
-        # Activity stats
-        stats_text += f"\n📈 **Activity**\n"
-        stats_text += f"• Active Secret Chats: {stats.get('active_secret_chats', 0)}\n"
-        stats_text += f"• Pending Deliveries: {status['pending_deliveries']}\n"
-        stats_text += f"• Total Deliveries: {stats.get('total_deliveries', 0)}\n"
-        stats_text += f"• Recent Deliveries (24h): {stats.get('recent_deliveries', 0)}\n"
-        
-        # Create stats buttons
-        keyboard = [
-            [InlineKeyboardButton("🔄 Refresh", callback_data="userbot_stats")],
-            [InlineKeyboardButton("📋 Delivery History", callback_data="userbot_delivery_history")],
-            [InlineKeyboardButton("🔙 Back to Status", callback_data="userbot_status")]
-        ]
-        
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await update.callback_query.edit_message_text(
-            stats_text,
-            parse_mode='Markdown',
-            reply_markup=reply_markup
-        )
-        
-    except Exception as e:
-        logger.error(f"❌ USERBOT ADMIN: Error showing stats: {e}")
-        await update.callback_query.answer("Error showing statistics", show_alert=True)
-
-async def handle_userbot_toggle_reconnect(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
-    """Toggle auto reconnect setting"""
-    try:
-        current = get_userbot_setting('auto_reconnect', 'true')
-        new_value = 'false' if current == 'true' else 'true'
-        
-        set_userbot_setting('auto_reconnect', new_value)
-        
-        status = "enabled" if new_value == 'true' else "disabled"
-        await update.callback_query.answer(f"Auto reconnect {status}")
-        
-        log_userbot_activity("setting_changed", update.effective_user.id, f"Auto reconnect {status}")
-        
-        # Refresh settings
-        await handle_userbot_settings(update, context)
-        
-    except Exception as e:
-        logger.error(f"❌ USERBOT ADMIN: Error toggling reconnect: {e}")
-        await update.callback_query.answer("Error updating setting", show_alert=True)
-
-async def handle_userbot_toggle_notifications(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
-    """Toggle delivery notifications"""
-    try:
-        current = get_userbot_setting('delivery_notification', 'true')
-        new_value = 'false' if current == 'true' else 'true'
-        
-        set_userbot_setting('delivery_notification', new_value)
-        
-        status = "enabled" if new_value == 'true' else "disabled"
-        await update.callback_query.answer(f"Delivery notifications {status}")
-        
-        log_userbot_activity("setting_changed", update.effective_user.id, f"Notifications {status}")
-        
-        # Refresh settings
-        await handle_userbot_settings(update, context)
-        
-    except Exception as e:
-        logger.error(f"❌ USERBOT ADMIN: Error toggling notifications: {e}")
-        await update.callback_query.answer("Error updating setting", show_alert=True)
-
-async def handle_userbot_credentials(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
-    """Show userbot credentials management"""
-    try:
-        credentials = get_userbot_credentials()
-        
-        credentials_text = "🔐 **USERBOT CREDENTIALS**\n\n"
-        
-        if credentials:
-            credentials_text += f"✅ **Status**: Configured\n"
-            credentials_text += f"📱 **API ID**: `{credentials.get('api_id', 'N/A')}`\n"
-            credentials_text += f"🔑 **API Hash**: `{credentials.get('api_hash', 'N/A')[:8]}...`\n"
-            credentials_text += f"📞 **Phone**: `{credentials.get('phone_number', 'N/A')}`\n"
-            credentials_text += f"💾 **Session**: `{credentials.get('session_name', 'N/A')}`\n"
-        else:
-            credentials_text += "❌ **Status**: Not Configured\n"
-            credentials_text += "Please set up your userbot credentials to enable the userbot.\n"
-        
-        # Create credentials management buttons
-        keyboard = []
-        
-        if credentials:
-            keyboard.append([InlineKeyboardButton("✏️ Update Credentials", callback_data="userbot_update_credentials")])
-            keyboard.append([InlineKeyboardButton("🗑️ Clear Credentials", callback_data="userbot_clear_credentials")])
-            keyboard.append([InlineKeyboardButton("🔄 Test Connection", callback_data="userbot_test_connection")])
-        else:
-            keyboard.append([InlineKeyboardButton("➕ Add Credentials", callback_data="userbot_add_credentials")])
-        
-        keyboard.append([InlineKeyboardButton("🔙 Back to Status", callback_data="userbot_status")])
-        
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await update.callback_query.edit_message_text(
-            credentials_text,
-            parse_mode='Markdown',
-            reply_markup=reply_markup
-        )
-        
-    except Exception as e:
-        logger.error(f"❌ USERBOT ADMIN: Error showing credentials: {e}")
-        await update.callback_query.answer("Error showing credentials", show_alert=True)
-
-async def handle_userbot_add_credentials(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
-    """Start adding userbot credentials"""
-    try:
-        await update.callback_query.answer("Starting credentials setup...")
-        
-        # Set user state for API ID input
-        context.user_data['state'] = 'awaiting_userbot_api_id'
-        set_userbot_auth_state(update.effective_user.id, 'api_id')
-        
-        text = "🔐 **USERBOT CREDENTIALS SETUP**\n\n"
-        text += "Please provide your Telegram API credentials:\n\n"
-        text += "**Step 1/3**: Enter your API ID\n"
-        text += "• Go to https://my.telegram.org\n"
-        text += "• Log in with your userbot account\n"
-        text += "• Go to 'API development tools'\n"
-        text += "• Create a new application\n"
-        text += "• Enter the API ID here:\n\n"
-        text += "Type your API ID (numbers only):"
-        
-        keyboard = [[InlineKeyboardButton("❌ Cancel", callback_data="userbot_credentials")]]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await update.callback_query.edit_message_text(
-            text,
-            parse_mode='Markdown',
-            reply_markup=reply_markup
-        )
-        
-    except Exception as e:
-        logger.error(f"❌ USERBOT ADMIN: Error starting credentials setup: {e}")
-        await update.callback_query.answer("Error starting setup", show_alert=True)
-
-async def handle_userbot_update_credentials(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
-    """Start updating userbot credentials"""
-    try:
-        await update.callback_query.answer("Starting credentials update...")
-        
-        # Set user state for API ID input
-        context.user_data['state'] = 'awaiting_userbot_api_id'
-        set_userbot_auth_state(update.effective_user.id, 'api_id')
-        
-        text = "🔐 **UPDATE USERBOT CREDENTIALS**\n\n"
-        text += "**Step 1/3**: Enter your new API ID\n"
-        text += "Type your API ID (numbers only):"
-        
-        keyboard = [[InlineKeyboardButton("❌ Cancel", callback_data="userbot_credentials")]]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await update.callback_query.edit_message_text(
-            text,
-            parse_mode='Markdown',
-            reply_markup=reply_markup
-        )
-        
-    except Exception as e:
-        logger.error(f"❌ USERBOT ADMIN: Error starting credentials update: {e}")
-        await update.callback_query.answer("Error starting update", show_alert=True)
-
-async def handle_userbot_clear_credentials(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
-    """Clear userbot credentials"""
-    try:
-        await update.callback_query.answer("Clearing credentials...")
-        
-        success = clear_userbot_credentials()
-        if success:
-            # Reload userbot config
-            userbot_config.reload_from_database()
-            
-            await update.callback_query.answer("✅ Credentials cleared successfully!")
-            log_userbot_activity("credentials_cleared", update.effective_user.id, "Admin cleared userbot credentials")
-        else:
-            await update.callback_query.answer("❌ Failed to clear credentials", show_alert=True)
-        
-        # Refresh credentials view
-        await handle_userbot_credentials(update, context)
-        
-    except Exception as e:
-        logger.error(f"❌ USERBOT ADMIN: Error clearing credentials: {e}")
-        await update.callback_query.answer("Error clearing credentials", show_alert=True)
-
-async def handle_userbot_test_connection(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
-    """Test userbot connection"""
-    try:
-        await update.callback_query.answer("Testing connection...")
-        
-        # Reload config first
-        userbot_config.reload_from_database()
-        
-        if not userbot_config.is_configured():
-            await update.callback_query.answer("❌ Userbot not configured", show_alert=True)
-            return
-        
-        # Show testing message
-        await update.callback_query.edit_message_text(
-            "🔄 USERBOT: Testing connection...\n\n"
-            "Please wait while we check the userbot status.",
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("⏳ Testing...", callback_data="userbot_test_connection")
-            ]])
-        )
-        
-        # Test connection
-        logger.info("🔍 USERBOT: Admin testing connection...")
-        success = await userbot_manager.initialize()
+        admin_id = update.effective_user.id
+        success, message = await userbot.send_product_to_user(admin_id, test_product)
         
         if success:
-            # Perform additional health check
-            health_ok = await userbot_manager.health_check()
-            
-            if health_ok:
-                status_text = "✅ USERBOT: Connection test successful!\n\n"
-                status_text += "The userbot is working properly and can deliver products.\n"
-                status_text += "Secret chat creation and product delivery should work correctly."
-            else:
-                status_text = "⚠️ USERBOT: Connection established but health check failed!\n\n"
-                status_text += "The userbot connected but may not be fully functional.\n"
-                status_text += "Please check the logs for more details."
-            
             await update.callback_query.edit_message_text(
-                status_text,
+                "✅ **TEST SUCCESSFUL!**\n\nCheck your messages for the test product delivery.",
                 reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton("🔙 Back", callback_data="userbot_status")
+                    InlineKeyboardButton("🔙 Back to Status", callback_data="userbot_status")
                 ]])
             )
-            log_userbot_activity("connection_tested", update.effective_user.id, "Admin tested userbot connection - success")
         else:
             await update.callback_query.edit_message_text(
-                "❌ USERBOT: Connection test failed!\n\n"
-                "The userbot could not connect to Telegram.\n"
-                "Please check the credentials and try again.",
+                f"❌ **TEST FAILED**\n\n{message}",
                 reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton("🔙 Back", callback_data="userbot_status")
+                    InlineKeyboardButton("🔙 Back to Status", callback_data="userbot_status")
                 ]])
             )
-            log_userbot_activity("connection_test_failed", update.effective_user.id, "Admin connection test failed")
         
     except Exception as e:
-        logger.error(f"❌ USERBOT ADMIN: Error testing connection: {e}")
-        await update.callback_query.edit_message_text(
-            f"❌ Error testing connection: {str(e)}\n\n"
-            "Please check the logs for more details.",
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("🔙 Back", callback_data="userbot_status")
-            ]])
-        )
+        logger.error(f"❌ USERBOT ADMIN: Error testing: {e}")
+        await update.callback_query.answer("Error testing", show_alert=True)
 
-async def handle_userbot_enter_verification_code(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
-    """Handle verification code input"""
-    try:
-        await update.callback_query.answer("Enter verification code...")
-        
-        # Set user state to await verification code
-        context.user_data['awaiting_userbot_verification_code'] = True
-        
-        await update.callback_query.edit_message_text(
-            "📱 **USERBOT VERIFICATION**\n\n"
-            "Please enter the verification code sent to your phone:\n\n"
-            "Send the code as a message to this bot.\n\n"
-            "⚠️ **Note**: This code is only valid for a few minutes.",
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("❌ Cancel", callback_data="userbot_status")
-            ]])
-        )
-        
-    except Exception as e:
-        logger.error(f"❌ USERBOT ADMIN: Error setting up verification code input: {e}")
-        await update.callback_query.answer("Error setting up verification", show_alert=True)
-
-async def handle_userbot_enter_2fa_password(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
-    """Handle 2FA password input"""
-    try:
-        await update.callback_query.answer("Enter 2FA password...")
-        
-        # Set user state to await 2FA password
-        context.user_data['awaiting_userbot_2fa_password'] = True
-        
-        await update.callback_query.edit_message_text(
-            "🔐 **USERBOT 2FA AUTHENTICATION**\n\n"
-            "Please enter your 2FA password:\n\n"
-            "Send the password as a message to this bot.\n\n"
-            "⚠️ **Note**: This is your Telegram 2FA password, not your account password.",
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("❌ Cancel", callback_data="userbot_status")
-            ]])
-        )
-        
-    except Exception as e:
-        logger.error(f"❌ USERBOT ADMIN: Error setting up 2FA password input: {e}")
-        await update.callback_query.answer("Error setting up 2FA", show_alert=True)
-
-# Message handlers for credentials setup
+# Message handlers for credential setup
 async def handle_userbot_api_id_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle API ID input"""
     try:
         api_id_text = update.message.text.strip()
         
-        # Validate API ID
         try:
             api_id = int(api_id_text)
-            if api_id <= 0:
-                raise ValueError("Invalid API ID")
+            context.user_data['temp_api_id'] = api_id
+            context.user_data.pop('awaiting_userbot_api_id', None)
+            context.user_data['awaiting_userbot_api_hash'] = True
+            
+            await update.message.reply_text(
+                "✅ API ID saved!\n\n"
+                "Step 2/3: Send your API Hash:",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("❌ Cancel", callback_data="userbot_status")
+                ]])
+            )
         except ValueError:
-            await update.message.reply_text("❌ Invalid API ID. Please enter a valid number.")
-            return
-        
-        # Store API ID and move to next step
-        context.user_data['userbot_api_id'] = api_id
-        context.user_data['state'] = 'awaiting_userbot_api_hash'
-        set_userbot_auth_state(update.effective_user.id, 'api_hash', str(api_id))
-        
-        text = "🔐 **USERBOT CREDENTIALS SETUP**\n\n"
-        text += f"✅ API ID: `{api_id}`\n\n"
-        text += "**Step 2/3**: Enter your API Hash\n"
-        text += "• Go back to https://my.telegram.org\n"
-        text += "• Copy your API Hash\n"
-        text += "• Paste it here:\n\n"
-        text += "Type your API Hash:"
-        
-        keyboard = [[InlineKeyboardButton("❌ Cancel", callback_data="userbot_credentials")]]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await update.message.reply_text(
-            text,
-            parse_mode='Markdown',
-            reply_markup=reply_markup
-        )
-        
+            await update.message.reply_text("❌ Invalid API ID. Please send a number only.")
+            
     except Exception as e:
         logger.error(f"❌ USERBOT ADMIN: Error handling API ID: {e}")
         await update.message.reply_text("❌ Error processing API ID. Please try again.")
@@ -594,32 +235,17 @@ async def handle_userbot_api_hash_message(update: Update, context: ContextTypes.
     """Handle API Hash input"""
     try:
         api_hash = update.message.text.strip()
-        
-        # Validate API Hash
-        if len(api_hash) < 10:
-            await update.message.reply_text("❌ Invalid API Hash. Please enter a valid hash.")
-            return
-        
-        # Store API Hash and move to next step
-        context.user_data['userbot_api_hash'] = api_hash
-        context.user_data['state'] = 'awaiting_userbot_phone'
-        set_userbot_auth_state(update.effective_user.id, 'phone', f"{context.user_data.get('userbot_api_id')}|{api_hash}")
-        
-        text = "🔐 **USERBOT CREDENTIALS SETUP**\n\n"
-        text += f"✅ API ID: `{context.user_data.get('userbot_api_id')}`\n"
-        text += f"✅ API Hash: `{api_hash[:8]}...`\n\n"
-        text += "**Step 3/3**: Enter your phone number\n"
-        text += "• Enter the phone number for your userbot account\n"
-        text += "• Include country code (e.g., +1234567890)\n\n"
-        text += "Type your phone number:"
-        
-        keyboard = [[InlineKeyboardButton("❌ Cancel", callback_data="userbot_credentials")]]
-        reply_markup = InlineKeyboardMarkup(keyboard)
+        context.user_data['temp_api_hash'] = api_hash
+        context.user_data.pop('awaiting_userbot_api_hash', None)
+        context.user_data['awaiting_userbot_phone'] = True
         
         await update.message.reply_text(
-            text,
-            parse_mode='Markdown',
-            reply_markup=reply_markup
+            "✅ API Hash saved!\n\n"
+            "Step 3/3: Send your phone number with country code:\n\n"
+            "Example: +1234567890",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("❌ Cancel", callback_data="userbot_status")
+            ]])
         )
         
     except Exception as e:
@@ -627,297 +253,128 @@ async def handle_userbot_api_hash_message(update: Update, context: ContextTypes.
         await update.message.reply_text("❌ Error processing API Hash. Please try again.")
 
 async def handle_userbot_phone_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle phone number input and save credentials"""
+    """Handle phone number input"""
     try:
-        phone_number = update.message.text.strip()
+        phone = update.message.text.strip()
         
-        # Validate phone number
-        if not phone_number.startswith('+') or len(phone_number) < 10:
-            await update.message.reply_text("❌ Invalid phone number. Please include country code (e.g., +1234567890).")
-            return
+        # Set credentials
+        api_id = context.user_data.get('temp_api_id')
+        api_hash = context.user_data.get('temp_api_hash')
         
-        # Get stored credentials
-        api_id = context.user_data.get('userbot_api_id')
-        api_hash = context.user_data.get('userbot_api_hash')
+        success, message = userbot.set_credentials(api_id, api_hash, phone)
         
-        if not api_id or not api_hash:
-            await update.message.reply_text("❌ Missing credentials. Please start over.")
-            return
-        
-        # Save credentials to database
-        success = set_userbot_credentials(api_id, api_hash, phone_number)
+        # Clean up temp data
+        context.user_data.pop('awaiting_userbot_phone', None)
+        context.user_data.pop('temp_api_id', None)
+        context.user_data.pop('temp_api_hash', None)
         
         if success:
-            # Clear user data and state
-            context.user_data.pop('userbot_api_id', None)
-            context.user_data.pop('userbot_api_hash', None)
-            context.user_data['state'] = None
-            clear_userbot_auth_state(update.effective_user.id)
-            
-            # Reload userbot config
-            userbot_config.reload_from_database()
-            
-            text = "✅ **CREDENTIALS SAVED SUCCESSFULLY!**\n\n"
-            text += f"📱 API ID: `{api_id}`\n"
-            text += f"🔑 API Hash: `{api_hash[:8]}...`\n"
-            text += f"📞 Phone: `{phone_number}`\n\n"
-            text += "The userbot is now configured and ready to use!\n"
-            text += "You can test the connection from the credentials menu."
-            
-            keyboard = [
-                [InlineKeyboardButton("🔄 Test Connection", callback_data="userbot_test_connection")],
-                [InlineKeyboardButton("🔙 Back to Credentials", callback_data="userbot_credentials")]
-            ]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            
             await update.message.reply_text(
-                text,
-                parse_mode='Markdown',
-                reply_markup=reply_markup
+                "✅ **CREDENTIALS SAVED!**\n\nNow you can authenticate the userbot.",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("🔐 Authenticate", callback_data="userbot_authenticate"),
+                    InlineKeyboardButton("🔐 Authenticate with 2FA", callback_data="userbot_authenticate_2fa"),
+                    InlineKeyboardButton("🔙 Back to Status", callback_data="userbot_status")
+                ]])
             )
-            
-            log_userbot_activity("credentials_saved", update.effective_user.id, f"Admin saved userbot credentials for {phone_number}")
         else:
-            await update.message.reply_text("❌ Failed to save credentials. Please try again.")
+            await update.message.reply_text(f"❌ **ERROR**: {message}")
         
     except Exception as e:
-        logger.error(f"❌ USERBOT ADMIN: Error handling phone number: {e}")
+        logger.error(f"❌ USERBOT ADMIN: Error handling phone: {e}")
         await update.message.reply_text("❌ Error processing phone number. Please try again.")
 
-async def handle_userbot_photo_code_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle photo code confirmation for userbot authentication"""
+async def handle_userbot_verification_code_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle verification code input"""
     try:
-        photo_code = update.message.text.strip()
+        code = update.message.text.strip()
+        context.user_data.pop('awaiting_userbot_verification_code', None)
         
-        # Validate photo code
-        if len(photo_code) < 4:
-            await update.message.reply_text("❌ Invalid photo code. Please enter the code you received.")
-            return
-        
-        # Get stored credentials from auth state
-        auth_state = get_userbot_auth_state(update.effective_user.id)
-        if not auth_state or auth_state.get('auth_step') != 'photo_code':
-            await update.message.reply_text("❌ No active photo code verification. Please start over.")
-            return
-        
-        # Parse stored credentials
-        temp_data = auth_state.get('temp_data', '')
-        if '|' not in temp_data:
-            await update.message.reply_text("❌ Invalid stored data. Please start over.")
-            return
-        
-        parts = temp_data.split('|')
-        if len(parts) < 3:
-            await update.message.reply_text("❌ Invalid stored data. Please start over.")
-            return
-        
-        api_id = int(parts[0])
-        api_hash = parts[1]
-        phone_number = parts[2]
-        
-        # Save credentials to database
-        success = set_userbot_credentials(api_id, api_hash, phone_number)
+        success, message = await userbot.authenticate_with_code(code)
         
         if success:
-            # Clear user data and state
-            context.user_data['state'] = None
-            clear_userbot_auth_state(update.effective_user.id)
-            
-            # Reload userbot config
-            userbot_config.reload_from_database()
-            
-            text = "✅ **AUTHENTICATION COMPLETED!**\n\n"
-            text += f"📱 API ID: `{api_id}`\n"
-            text += f"🔑 API Hash: `{api_hash[:8]}...`\n"
-            text += f"📞 Phone: `{phone_number}`\n\n"
-            text += "The userbot is now fully configured and authenticated!\n"
-            text += "You can test the connection from the credentials menu."
-            
-            keyboard = [
-                [InlineKeyboardButton("🔄 Test Connection", callback_data="userbot_test_connection")],
-                [InlineKeyboardButton("🔙 Back to Credentials", callback_data="userbot_credentials")]
-            ]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            
             await update.message.reply_text(
-                text,
-                parse_mode='Markdown',
-                reply_markup=reply_markup
+                f"✅ **AUTHENTICATION SUCCESSFUL!**\n\n{message}\n\nThe userbot is ready to deliver products.",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("🔙 Back to Status", callback_data="userbot_status")
+                ]])
             )
-            
-            log_userbot_activity("photo_code_verified", update.effective_user.id, f"Admin completed userbot authentication for {phone_number}")
         else:
-            await update.message.reply_text("❌ Failed to save credentials. Please try again.")
+            await update.message.reply_text(
+                f"❌ **AUTHENTICATION FAILED**\n\n{message}",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("🔄 Try Again", callback_data="userbot_authenticate"),
+                    InlineKeyboardButton("🔙 Back to Status", callback_data="userbot_status")
+                ]])
+            )
         
     except Exception as e:
-        logger.error(f"❌ USERBOT ADMIN: Error handling photo code: {e}")
-        await update.message.reply_text("❌ Error processing photo code. Please try again.")
+        logger.error(f"❌ USERBOT ADMIN: Error handling verification code: {e}")
+        await update.message.reply_text("❌ Error processing verification code. Please try again.")
 
 async def handle_userbot_2fa_code_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle 2FA code for userbot authentication"""
+    """Handle 2FA verification code input"""
     try:
-        twofa_code = update.message.text.strip()
+        code = update.message.text.strip()
+        context.user_data.pop('awaiting_userbot_2fa_code', None)
+        context.user_data['awaiting_userbot_2fa_password'] = True
+        context.user_data['temp_2fa_code'] = code
         
-        # Validate 2FA code
-        if len(twofa_code) < 4:
-            await update.message.reply_text("❌ Invalid 2FA code. Please enter the code from your authenticator app.")
-            return
-        
-        # Get stored credentials from auth state
-        auth_state = get_userbot_auth_state(update.effective_user.id)
-        if not auth_state or auth_state.get('auth_step') != '2fa_code':
-            await update.message.reply_text("❌ No active 2FA verification. Please start over.")
-            return
-        
-        # Parse stored credentials
-        temp_data = auth_state.get('temp_data', '')
-        if '|' not in temp_data:
-            await update.message.reply_text("❌ Invalid stored data. Please start over.")
-            return
-        
-        parts = temp_data.split('|')
-        if len(parts) < 3:
-            await update.message.reply_text("❌ Invalid stored data. Please start over.")
-            return
-        
-        api_id = int(parts[0])
-        api_hash = parts[1]
-        phone_number = parts[2]
-        
-        # Save credentials to database
-        success = set_userbot_credentials(api_id, api_hash, phone_number)
-        
-        if success:
-            # Clear user data and state
-            context.user_data['state'] = None
-            clear_userbot_auth_state(update.effective_user.id)
-            
-            # Reload userbot config
-            userbot_config.reload_from_database()
-            
-            text = "✅ **2FA AUTHENTICATION COMPLETED!**\n\n"
-            text += f"📱 API ID: `{api_id}`\n"
-            text += f"🔑 API Hash: `{api_hash[:8]}...`\n"
-            text += f"📞 Phone: `{phone_number}`\n\n"
-            text += "The userbot is now fully configured and authenticated!\n"
-            text += "You can test the connection from the credentials menu."
-            
-            keyboard = [
-                [InlineKeyboardButton("🔄 Test Connection", callback_data="userbot_test_connection")],
-                [InlineKeyboardButton("🔙 Back to Credentials", callback_data="userbot_credentials")]
-            ]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            
-            await update.message.reply_text(
-                text,
-                parse_mode='Markdown',
-                reply_markup=reply_markup
-            )
-            
-            log_userbot_activity("2fa_verified", update.effective_user.id, f"Admin completed 2FA authentication for {phone_number}")
-        else:
-            await update.message.reply_text("❌ Failed to save credentials. Please try again.")
+        await update.message.reply_text(
+            "📱 **CODE RECEIVED!**\n\n"
+            "Step 2: Now send your 2FA password (Cloud Password):",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("🔙 Back to Status", callback_data="userbot_status")
+            ]])
+        )
         
     except Exception as e:
         logger.error(f"❌ USERBOT ADMIN: Error handling 2FA code: {e}")
         await update.message.reply_text("❌ Error processing 2FA code. Please try again.")
 
-async def handle_userbot_verification_code_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle verification code input message"""
-    try:
-        code = update.message.text.strip()
-        user_id = update.effective_user.id
-        
-        # Clear the awaiting state
-        context.user_data.pop('awaiting_userbot_verification_code', None)
-        
-        # Process verification code
-        success = await userbot_manager.handle_verification_code(code)
-        
-        if success:
-            await update.message.reply_text(
-                "✅ **USERBOT AUTHENTICATION SUCCESSFUL!**\n\n"
-                "The userbot is now connected and ready to deliver products via secret chats.\n\n"
-                "🔒 Products will now be delivered securely through the userbot system.",
-                reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton("🔙 Back to Status", callback_data="userbot_status")
-                ]])
-            )
-            log_userbot_activity("verification_success", user_id, "Successfully authenticated userbot")
-        else:
-            await update.message.reply_text(
-                "❌ **VERIFICATION FAILED**\n\n"
-                "The verification code was invalid or expired.\n\n"
-                "Please try again or check the code you received.",
-                reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton("🔄 Try Again", callback_data="userbot_enter_verification_code"),
-                    InlineKeyboardButton("🔙 Back to Status", callback_data="userbot_status")
-                ]])
-            )
-            log_userbot_activity("verification_failed", user_id, "Failed to authenticate with verification code")
-        
-    except Exception as e:
-        logger.error(f"❌ USERBOT ADMIN: Error processing verification code: {e}")
-        await update.message.reply_text("❌ Error processing verification code. Please try again.")
-        log_userbot_activity("verification_code_error", update.effective_user.id, f"Error processing verification code: {e}")
-
 async def handle_userbot_2fa_password_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle 2FA password input message"""
+    """Handle 2FA password input"""
     try:
         password = update.message.text.strip()
-        user_id = update.effective_user.id
+        code = context.user_data.get('temp_2fa_code')
         
-        # Clear the awaiting state
         context.user_data.pop('awaiting_userbot_2fa_password', None)
+        context.user_data.pop('temp_2fa_code', None)
         
-        # Process 2FA password
-        success = await userbot_manager.handle_2fa_password(password)
+        if not code:
+            await update.message.reply_text("❌ Session expired. Please start authentication again.")
+            return
+        
+        success, message = await userbot.authenticate_with_2fa(code, password)
         
         if success:
             await update.message.reply_text(
-                "✅ **USERBOT 2FA AUTHENTICATION SUCCESSFUL!**\n\n"
-                "The userbot is now fully authenticated and ready to deliver products via secret chats.\n\n"
-                "🔒 Products will now be delivered securely through the userbot system.",
+                f"✅ **2FA AUTHENTICATION SUCCESSFUL!**\n\n{message}\n\nThe userbot is ready to deliver products.",
                 reply_markup=InlineKeyboardMarkup([[
                     InlineKeyboardButton("🔙 Back to Status", callback_data="userbot_status")
                 ]])
             )
-            log_userbot_activity("2fa_success", user_id, "Successfully authenticated userbot with 2FA")
         else:
             await update.message.reply_text(
-                "❌ **2FA AUTHENTICATION FAILED**\n\n"
-                "The 2FA password was incorrect.\n\n"
-                "Please try again or check your 2FA password.",
+                f"❌ **2FA AUTHENTICATION FAILED**\n\n{message}",
                 reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton("🔄 Try Again", callback_data="userbot_enter_2fa_password"),
+                    InlineKeyboardButton("🔄 Try Again", callback_data="userbot_authenticate_2fa"),
                     InlineKeyboardButton("🔙 Back to Status", callback_data="userbot_status")
                 ]])
             )
-            log_userbot_activity("2fa_failed", user_id, "Failed to authenticate with 2FA password")
         
     except Exception as e:
-        logger.error(f"❌ USERBOT ADMIN: Error processing 2FA password: {e}")
+        logger.error(f"❌ USERBOT ADMIN: Error handling 2FA password: {e}")
         await update.message.reply_text("❌ Error processing 2FA password. Please try again.")
-        log_userbot_activity("2fa_password_error", update.effective_user.id, f"Error processing 2FA password: {e}")
 
-# Add more handlers as needed for other settings...
-
-def get_userbot_admin_handlers():
-    """Get list of userbot admin handlers"""
+def get_userbot_handlers():
+    """Get userbot admin handlers"""
     return [
         ("userbot_status", handle_userbot_status),
+        ("userbot_set_credentials", handle_userbot_set_credentials),
+        ("userbot_authenticate", handle_userbot_authenticate),
+        ("userbot_authenticate_2fa", handle_userbot_authenticate_2fa),
         ("userbot_connect", handle_userbot_connect),
         ("userbot_disconnect", handle_userbot_disconnect),
-        ("userbot_settings", handle_userbot_settings),
-        ("userbot_keywords", handle_userbot_keywords),
-        ("userbot_stats", handle_userbot_stats),
-        ("userbot_toggle_reconnect", handle_userbot_toggle_reconnect),
-        ("userbot_toggle_notifications", handle_userbot_toggle_notifications),
-        ("userbot_credentials", handle_userbot_credentials),
-        ("userbot_add_credentials", handle_userbot_add_credentials),
-        ("userbot_update_credentials", handle_userbot_update_credentials),
-        ("userbot_clear_credentials", handle_userbot_clear_credentials),
-        ("userbot_test_connection", handle_userbot_test_connection),
-        ("userbot_enter_verification_code", handle_userbot_enter_verification_code),
-        ("userbot_enter_2fa_password", handle_userbot_enter_2fa_password),
+        ("userbot_test", handle_userbot_test),
     ]

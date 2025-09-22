@@ -1475,41 +1475,34 @@ async def _trigger_userbot_delivery(user_id: int, basket_snapshot: list, context
     """Trigger userbot delivery for completed purchase"""
     try:
         # Import here to avoid circular imports
-        from improved_simple_userbot import improved_simple_userbot
+        from userbot import userbot
         
         # Check if userbot is connected
-        if not improved_simple_userbot.is_connected:
+        if not userbot.is_connected:
             logger.info(f"🔄 USERBOT: Userbot not connected - using fallback delivery for user {user_id}")
             await _fallback_delivery_to_bot_chat(user_id, basket_snapshot, context)
             return
         
-        # Prepare delivery message
+        # Prepare product data for userbot delivery
         if len(basket_snapshot) == 1:
-            product_name = basket_snapshot[0]['product_name']
-            product_type = basket_snapshot[0]['product_type']
-            city = basket_snapshot[0]['city']
-            district = basket_snapshot[0]['district']
-            size = basket_snapshot[0]['size']
+            product_data = {
+                'product_name': basket_snapshot[0]['product_name'],
+                'product_type': basket_snapshot[0]['product_type'],
+                'city': basket_snapshot[0]['city'],
+                'district': basket_snapshot[0]['district'],
+                'size': basket_snapshot[0]['size'],
+                'price': f"{float(basket_snapshot[0]['price']):.2f}"
+            }
         else:
-            product_name = f"{len(basket_snapshot)} items"
-            product_type = "Multiple"
-            city = basket_snapshot[0]['city'] if basket_snapshot else 'Unknown'
-            district = basket_snapshot[0]['district'] if basket_snapshot else 'Unknown'
-            size = 'N/A'
-        
-        total_price = sum(float(item['price']) for item in basket_snapshot)
-        
-        # Create delivery message
-        delivery_message = (
-            f"🔒 **SECRET DELIVERY**\n\n"
-            f"**Product**: {product_name}\n"
-            f"**Type**: {product_type}\n"
-            f"**Location**: {city}, {district}\n"
-            f"**Size**: {size}\n"
-            f"**Price**: {total_price:.2f} EUR\n\n"
-            f"✅ **Your product is ready!**\n"
-            f"🔐 **Delivered via secure secret chat**"
-        )
+            total_price = sum(float(item['price']) for item in basket_snapshot)
+            product_data = {
+                'product_name': f"{len(basket_snapshot)} items",
+                'product_type': "Multiple Products",
+                'city': basket_snapshot[0]['city'] if basket_snapshot else 'Unknown',
+                'district': basket_snapshot[0]['district'] if basket_snapshot else 'Unknown',
+                'size': 'Various',
+                'price': f"{total_price:.2f}"
+            }
         
         # Get media files
         media_files = []
@@ -1527,8 +1520,8 @@ async def _trigger_userbot_delivery(user_id: int, basket_snapshot: list, context
                     if os.path.exists(media_row[0]):
                         media_files.append(media_row[0])
         
-        # Send via userbot
-        success, message = await improved_simple_userbot.send_secret_message(user_id, delivery_message, media_files)
+        # Send via userbot (this is the core workflow function)
+        success, message = await userbot.send_product_to_user(user_id, product_data, media_files)
         
         if success:
             logger.info(f"✅ USERBOT: Secret message sent to user {user_id}")
