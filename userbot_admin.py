@@ -471,8 +471,8 @@ async def handle_userbot_message(update: Update, context: ContextTypes.DEFAULT_T
                 parse_mode=ParseMode.MARKDOWN
             )
             
-            # Create session for this account using Telethon
-            from telethon import TelegramClient
+            # Create session for this account using Pyrogram (compatible with our userbot)
+            from pyrogram import Client
             
             try:
                 api_id = int(session['account_data']['api_id'])
@@ -481,12 +481,13 @@ async def handle_userbot_message(update: Update, context: ContextTypes.DEFAULT_T
                 
                 # Create a unique session name
                 session_name = f"userbot_{user_id}_{int(asyncio.get_event_loop().time())}"
-                client = TelegramClient(session_name, api_id, api_hash)
+                client = Client(session_name, api_id=api_id, api_hash=api_hash)
                 
                 await client.connect()
                 
                 # Request verification code
-                await client.send_code_request(phone)
+                sent_code = await client.send_code(phone)
+                session['phone_code_hash'] = sent_code.phone_code_hash
                 
                 session['client'] = client
                 session['session_name'] = session_name
@@ -522,28 +523,21 @@ async def handle_userbot_message(update: Update, context: ContextTypes.DEFAULT_T
                 return
             
             try:
-                from telethon.errors import SessionPasswordNeededError
+                from pyrogram.errors import SessionPasswordNeeded
                 
-                # Sign in with the code
+                # Sign in with the code using Pyrogram
                 phone = session['account_data']['phone_number']
+                phone_code_hash = session.get('phone_code_hash')
                 
-                # This is the correct way to handle Telethon sign_in
-                me = await client.sign_in(phone, code)
+                # This is the correct way to handle Pyrogram sign_in
+                signed_in = await client.sign_in(phone, phone_code_hash, code)
                 
-                # If we get here, authentication was successful
-                logger.info(f"✅ Successfully authenticated as {me.first_name} ({me.phone})")
+                # Get user info
+                me = await client.get_me()
+                logger.info(f"✅ Successfully authenticated as {me.first_name} ({me.phone_number})")
                 
-                # Get session file path
-                session_file_path = f"{session['session_name']}.session"
-                
-                # Ensure session is saved to disk
-                await client.disconnect()
-                await client.connect()
-                
-                # Read the session file and encode it
-                with open(session_file_path, 'rb') as f:
-                    session_data = f.read()
-                session_string = base64.b64encode(session_data).decode('utf-8')
+                # Export session string (Pyrogram format - compatible with our userbot!)
+                session_string = await client.export_session_string()
                 
                 # Set credentials in our userbot
                 api_id = int(session['account_data']['api_id'])
@@ -563,11 +557,11 @@ async def handle_userbot_message(update: Update, context: ContextTypes.DEFAULT_T
                         await update.message.reply_text(
                             "✅ **AUTHENTICATION & CONNECTION SUCCESSFUL!**\n\n"
                             f"Authenticated as: **{me.first_name}**\n"
-                            f"Phone: **{me.phone}**\n"
+                            f"Phone: **{me.phone_number}**\n"
                             f"Status: **{connect_message}**\n\n"
                             "🎯 **Your userbot is ready!**\n"
-                            "• Products will be delivered via secret chat\n"
-                            "• Direct messages to customers after payment\n"
+                            "• Products will be delivered via direct message\n"
+                            "• Automatic delivery after payment\n"
                             "• No manual intervention needed",
                             parse_mode=ParseMode.MARKDOWN,
                             reply_markup=InlineKeyboardMarkup([[
@@ -594,18 +588,11 @@ async def handle_userbot_message(update: Update, context: ContextTypes.DEFAULT_T
                 # Disconnect client and cleanup
                 await client.disconnect()
                 
-                # Clean up session file
-                try:
-                    if os.path.exists(session_file_path):
-                        os.remove(session_file_path)
-                except:
-                    pass
-                
                 # Clear session
                 if user_id in user_sessions:
                     del user_sessions[user_id]
                 
-            except SessionPasswordNeededError:
+            except SessionPasswordNeeded:
                 # 2FA required
                 session['step'] = '2fa_password'
                 await update.message.reply_text(
@@ -635,27 +622,15 @@ async def handle_userbot_message(update: Update, context: ContextTypes.DEFAULT_T
                 return
             
             try:
-                # Sign in with 2FA password
-                await client.sign_in(password=password)
+                # Check password with Pyrogram
+                await client.check_password(password)
                 
-                # Get session
-                session_file_path = f"{session['session_name']}.session"
-                
-                # Ensure session is saved
-                await client.disconnect()
-                await client.connect()
-                
-                # Verify authentication
+                # Get user info
                 me = await client.get_me()
-                if not me:
-                    raise Exception("2FA authentication verification failed")
-                
                 logger.info(f"✅ 2FA authentication successful for {me.first_name}")
                 
-                # Read the session file and encode it
-                with open(session_file_path, 'rb') as f:
-                    session_data = f.read()
-                session_string = base64.b64encode(session_data).decode('utf-8')
+                # Export session string (Pyrogram format - compatible with our userbot!)
+                session_string = await client.export_session_string()
                 
                 # Set credentials in our userbot
                 api_id = int(session['account_data']['api_id'])
@@ -676,7 +651,7 @@ async def handle_userbot_message(update: Update, context: ContextTypes.DEFAULT_T
                         await update.message.reply_text(
                             "✅ **2FA AUTHENTICATION & CONNECTION SUCCESSFUL!**\n\n"
                             f"Authenticated as: **{me.first_name}**\n"
-                            f"Phone: **{me.phone}**\n"
+                            f"Phone: **{me.phone_number}**\n"
                             f"Status: **{connect_message}**\n\n"
                             "🎯 **Your userbot is ready!**\n"
                             "• Products will be delivered via secret chat\n"
@@ -706,13 +681,6 @@ async def handle_userbot_message(update: Update, context: ContextTypes.DEFAULT_T
                 
                 # Disconnect client and cleanup
                 await client.disconnect()
-                
-                # Clean up session file
-                try:
-                    if os.path.exists(session_file_path):
-                        os.remove(session_file_path)
-                except:
-                    pass
                 
                 # Clear session
                 if user_id in user_sessions:
