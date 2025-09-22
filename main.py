@@ -337,6 +337,7 @@ def callback_query_router(func):
                 "userbot_connect": userbot_admin.handle_userbot_connect,
                 "userbot_disconnect": userbot_admin.handle_userbot_disconnect,
                 "userbot_test": userbot_admin.handle_userbot_test,
+                "userbot_clear_config": userbot_admin.handle_userbot_clear_config,
             }
 
             target_func = KNOWN_HANDLERS.get(command)
