@@ -126,6 +126,15 @@ class TelethonSecretUserbot:
             except Exception as e:
                 logger.error(f"❌ TELETHON: Error disconnecting: {e}")
     
+    def get_status(self):
+        """Get userbot status information"""
+        return {
+            'has_session': self.has_session,
+            'is_connected': self.is_connected,
+            'phone_number': self.phone_number,
+            'api_id': self.api_id
+        }
+    
     def clear_configuration(self):
         """Clear userbot configuration and session"""
         try:

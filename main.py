@@ -568,14 +568,15 @@ async def post_init(application: Application) -> None:
 async def post_shutdown(application: Application) -> None:
     logger.info("Running post_shutdown cleanup...")
     
-    # Disconnect userbot if connected
-    if userbot_manager.is_connected:
-        logger.info("🤖 USERBOT: Disconnecting userbot...")
-        try:
-            await userbot_manager.disconnect()
-            logger.info("✅ USERBOT: Disconnected successfully")
-        except Exception as e:
-            logger.error(f"❌ USERBOT: Error during disconnect: {e}")
+    # Disconnect Telethon userbot if connected
+    try:
+        from userbot_telethon import telethon_userbot as userbot
+        if userbot.is_connected:
+            logger.info("🤖 TELETHON USERBOT: Disconnecting userbot...")
+            await userbot.disconnect()
+            logger.info("✅ TELETHON USERBOT: Disconnected successfully")
+    except Exception as e:
+        logger.error(f"❌ TELETHON USERBOT: Error disconnecting userbot: {e}")
     
     logger.info("Post_shutdown finished.")
 

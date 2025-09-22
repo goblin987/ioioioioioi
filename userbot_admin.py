@@ -316,6 +316,11 @@ async def handle_userbot_2fa_password_message(update: Update, context: ContextTy
         logger.error(f"Error processing 2FA password: {e}")
         await update.message.reply_text("Error processing your message.")
 
+# Main message handler for userbot sessions
+async def handle_userbot_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Main handler for userbot authentication messages"""
+    await handle_userbot_session_message(update, context)
+
 # Handle other userbot session steps
 async def handle_userbot_session_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle userbot authentication session messages"""
