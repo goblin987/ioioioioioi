@@ -538,10 +538,10 @@ async def handle_userbot_message(update: Update, context: ContextTypes.DEFAULT_T
                 if user_id in user_sessions:
                     del user_sessions[user_id]
                 await update.message.reply_text(
-                    f"❌ **Authentication Failed**\n\n"
+                    f"❌ Authentication Failed\n\n"
                     f"Error: {str(e)}\n\n"
                     f"Please check your API credentials and try again.",
-                    parse_mode=ParseMode.MARKDOWN
+                    parse_mode=None
                 )
         
         elif session['step'] == 'verification_code':
@@ -637,10 +637,10 @@ async def handle_userbot_message(update: Update, context: ContextTypes.DEFAULT_T
             except Exception as e:
                 logger.error(f"Failed to authenticate with code: {e}")
                 await update.message.reply_text(
-                    f"❌ **Authentication Failed**\n\n"
+                    f"❌ Authentication Failed\n\n"
                     f"Error: {str(e)}\n\n"
                     f"Please check your verification code and try again.",
-                    parse_mode=ParseMode.MARKDOWN
+                    parse_mode=None
                 )
         
         elif session['step'] == '2fa_password':
@@ -722,17 +722,17 @@ async def handle_userbot_message(update: Update, context: ContextTypes.DEFAULT_T
             except Exception as e:
                 logger.error(f"2FA authentication failed: {e}")
                 await update.message.reply_text(
-                    f"❌ **2FA Authentication Failed**\n\n"
+                    f"❌ 2FA Authentication Failed\n\n"
                     f"Error: {str(e)}\n\n"
                     f"Please check your 2FA password and try again.",
-                    parse_mode=ParseMode.MARKDOWN
+                    parse_mode=None
                 )
     
     except Exception as e:
         logger.error(f"Error in userbot message handler: {e}", exc_info=True)
         await update.message.reply_text(
-            "❌ **Error processing your message**\n\nPlease try again or contact support.",
-            parse_mode=ParseMode.MARKDOWN
+            "❌ Error processing your message\n\nPlease try again or contact support.",
+            parse_mode=None
         )
 
 async def handle_userbot_clear_config(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
