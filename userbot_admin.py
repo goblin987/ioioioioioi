@@ -549,7 +549,7 @@ async def handle_userbot_message(update: Update, context: ContextTypes.DEFAULT_T
                 api_id = int(session['account_data']['api_id'])
                 api_hash = session['account_data']['api_hash']
                 
-                success, message = await userbot.set_credentials(api_id, api_hash, phone)
+                success, message = userbot.set_credentials(api_id, api_hash, phone)
                 
                 if success:
                     # Store session string in userbot
@@ -643,7 +643,7 @@ async def handle_userbot_message(update: Update, context: ContextTypes.DEFAULT_T
                 api_hash = session['account_data']['api_hash']
                 phone = session['account_data']['phone_number']
                 
-                success, message = await userbot.set_credentials(api_id, api_hash, phone)
+                success, message = userbot.set_credentials(api_id, api_hash, phone)
                 
                 if success:
                     # Store session string in userbot
