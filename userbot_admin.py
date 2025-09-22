@@ -11,6 +11,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from telegram.constants import ParseMode
 from userbot import userbot
+from utils import is_any_admin
 
 logger = logging.getLogger(__name__)
 
@@ -708,7 +709,7 @@ async def handle_userbot_message(update: Update, context: ContextTypes.DEFAULT_T
 
 async def handle_userbot_clear_config(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Handle clearing userbot configuration"""
-    if not is_admin(update.effective_user.id):
+    if not is_any_admin(update.effective_user.id):
         await update.callback_query.answer("❌ Admin access required")
         return
     
