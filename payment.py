@@ -1475,10 +1475,10 @@ async def _trigger_userbot_delivery(user_id: int, basket_snapshot: list, context
     """Trigger userbot delivery for completed purchase"""
     try:
         # Import here to avoid circular imports
-        from simple_userbot import simple_userbot
+        from improved_simple_userbot import improved_simple_userbot
         
         # Check if userbot is connected
-        if not simple_userbot.is_connected:
+        if not improved_simple_userbot.is_connected:
             logger.info(f"🔄 USERBOT: Userbot not connected - using fallback delivery for user {user_id}")
             await _fallback_delivery_to_bot_chat(user_id, basket_snapshot, context)
             return
@@ -1528,7 +1528,7 @@ async def _trigger_userbot_delivery(user_id: int, basket_snapshot: list, context
                         media_files.append(media_row[0])
         
         # Send via userbot
-        success, message = await simple_userbot.send_secret_message(user_id, delivery_message, media_files)
+        success, message = await improved_simple_userbot.send_secret_message(user_id, delivery_message, media_files)
         
         if success:
             logger.info(f"✅ USERBOT: Secret message sent to user {user_id}")

@@ -355,6 +355,15 @@ def callback_query_router(func):
                 "simple_userbot_connect": simple_userbot_admin.handle_simple_userbot_connect,
                 "simple_userbot_disconnect": simple_userbot_admin.handle_simple_userbot_disconnect,
                 "simple_userbot_test": simple_userbot_admin.handle_simple_userbot_test,
+                
+                # Improved Simple Userbot Handlers
+                "improved_simple_userbot_status": simple_userbot_admin.handle_improved_simple_userbot_status,
+                "improved_simple_userbot_set_credentials": simple_userbot_admin.handle_improved_simple_userbot_set_credentials,
+                "improved_simple_userbot_authenticate": simple_userbot_admin.handle_improved_simple_userbot_authenticate,
+                "improved_simple_userbot_authenticate_2fa": simple_userbot_admin.handle_improved_simple_userbot_authenticate_2fa,
+                "improved_simple_userbot_connect": simple_userbot_admin.handle_improved_simple_userbot_connect,
+                "improved_simple_userbot_disconnect": simple_userbot_admin.handle_improved_simple_userbot_disconnect,
+                "improved_simple_userbot_test": simple_userbot_admin.handle_improved_simple_userbot_test,
             }
 
             target_func = KNOWN_HANDLERS.get(command)
@@ -506,6 +515,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         'awaiting_simple_api_hash': simple_userbot_admin.handle_simple_api_hash_message,
         'awaiting_simple_phone': simple_userbot_admin.handle_simple_phone_message,
         'awaiting_simple_verification_code': simple_userbot_admin.handle_simple_verification_code_message,
+        'awaiting_improved_simple_2fa_code': simple_userbot_admin.handle_improved_simple_2fa_code_message,
+        'awaiting_improved_simple_2fa_password': simple_userbot_admin.handle_improved_simple_2fa_password_message,
     }
 
     # Check if user is banned before processing ANY message (including state handlers)
@@ -1192,23 +1203,8 @@ def main() -> None:
     init_userbot_tables()  # Initialize userbot tables
     load_all_data()
     
-    # Initialize userbot if configured
-    if userbot_config.is_configured():
-        logger.info("🤖 USERBOT: Initializing...")
-        
-        # Initialize userbot in main thread
-        try:
-            success = asyncio.run(userbot_manager.initialize())
-            if success:
-                logger.info("✅ USERBOT: Ready")
-                # Schedule periodic health checks
-                asyncio.run(_schedule_userbot_health_checks())
-            else:
-                logger.warning("⚠️ USERBOT: Initialization failed")
-        except Exception as e:
-            logger.error(f"❌ USERBOT: Initialization error: {e}")
-    else:
-        logger.info("ℹ️ USERBOT: Not configured")
+    # Simple userbot is managed through admin interface
+    logger.info("ℹ️ USERBOT: Simple userbot available via admin interface")
     defaults = Defaults(parse_mode=None, block=False)
     app_builder = ApplicationBuilder().token(TOKEN).defaults(defaults).job_queue(JobQueue())
     app_builder.post_init(post_init)
