@@ -296,35 +296,42 @@ class SimpleUserbot:
             # Create product message
             message = self._create_product_message(product_data)
             
-            # Create secret chat first
-            try:
-                secret_chat = await self.client.create_secret_chat(user_entity.id)
-                logger.info(f"✅ USERBOT: Created secret chat with user {user_id}")
-                chat_target = secret_chat.id
-            except Exception as e:
-                logger.warning(f"⚠️ USERBOT: Secret chat failed, using regular chat: {e}")
-                chat_target = user_entity.id
+            # Use direct message (secret chats not supported in Pyrogram userbot)
+            chat_target = user_entity.id
+            logger.info(f"📱 USERBOT: Sending via direct message to user {user_id}")
             
             # Send media files if any
             if media_files and len(media_files) > 0:
+                logger.info(f"📂 USERBOT: Attempting to send {len(media_files)} media files: {media_files}")
                 try:
+                    media_sent = 0
                     for media_file in media_files:
+                        logger.info(f"📁 USERBOT: Checking media file: {media_file}")
                         if os.path.exists(media_file):
+                            logger.info(f"✅ USERBOT: File exists, sending: {media_file}")
                             if media_file.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.webp')):
                                 await self.client.send_photo(chat_target, media_file)
+                                logger.info(f"📸 USERBOT: Sent photo: {media_file}")
                             elif media_file.lower().endswith(('.mp4', '.avi', '.mov', '.mkv')):
                                 await self.client.send_video(chat_target, media_file)
+                                logger.info(f"🎥 USERBOT: Sent video: {media_file}")
                             else:
                                 await self.client.send_document(chat_target, media_file)
-                    logger.info(f"✅ USERBOT: Sent {len(media_files)} media files to user {user_id}")
+                                logger.info(f"📄 USERBOT: Sent document: {media_file}")
+                            media_sent += 1
+                        else:
+                            logger.error(f"❌ USERBOT: File not found: {media_file}")
+                    logger.info(f"✅ USERBOT: Sent {media_sent}/{len(media_files)} media files to user {user_id}")
                 except Exception as e:
-                    logger.warning(f"⚠️ USERBOT: Error sending media: {e}")
+                    logger.error(f"❌ USERBOT: Error sending media: {e}")
+            else:
+                logger.warning(f"⚠️ USERBOT: No media files provided for user {user_id}")
             
             # Send product message
             await self.client.send_message(chat_target, message)
-            logger.info(f"✅ USERBOT: Product delivered to user {user_id} via secret chat")
+            logger.info(f"✅ USERBOT: Product delivered to user {user_id} via direct message")
             
-            return True, "Product delivered via secret chat"
+            return True, "Product delivered via userbot direct message"
             
         except Exception as e:
             error_msg = f"Error sending product: {e}"
