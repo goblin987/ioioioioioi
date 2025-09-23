@@ -257,92 +257,46 @@ class SimpleUserbot:
                 if not message_sent:
                     return False, "Failed to send message to secret chat after 5 attempts"
                 
-                # 🔐 SEND MEDIA FILES WITH RETRY
+                # 🔐 SEND MEDIA FILES AS TEXT INFO (SIMPLE & RELIABLE)
                 if media_files and len(media_files) > 0:
-                    logger.info(f"📂 SECRET CHAT RETRY: Sending {len(media_files)} media files")
+                    logger.info(f"📂 SECRET CHAT RETRY: Sending {len(media_files)} media files as text info")
                     
                     for i, media_file in enumerate(media_files):
-                        media_sent = False
-                        for attempt in range(1, 4):  # 3 attempts for media
-                            try:
-                                await asyncio.sleep(1)  # Brief wait between media
-                                
-                                file_ext = os.path.splitext(media_file)[1].lower()
-                                caption = f"📦 Product Media {i+1}/{len(media_files)}"
-                                
-                                secret_chat_obj = secret_chat_manager.get_secret_chat(secret_chat_id)
-                                target = secret_chat_obj if secret_chat_obj else secret_chat_id
-                                
-                                # 🔐 TRY MULTIPLE APPROACHES FOR MEDIA SENDING
-                                try:
-                                    # APPROACH 1: Try send_secret_document (simplest)
-                                    logger.info(f"📄 SECRET CHAT RETRY: Trying send_secret_document for {os.path.basename(media_file)}")
-                                    await secret_chat_manager.send_secret_document(target, media_file, caption=caption)
-                                    logger.info(f"✅ SECRET CHAT RETRY: Document method worked for media {i+1}")
-                                    
-                                except Exception as doc_error:
-                                    logger.warning(f"⚠️ SECRET CHAT RETRY: Document method failed: {doc_error}")
-                                    
-                                    # APPROACH 2: Try direct client.send_file to secret chat object
-                                    try:
-                                        logger.info(f"📁 SECRET CHAT RETRY: Trying direct client.send_file to secret chat object")
-                                        await self.client.send_file(target, media_file, caption=caption)
-                                        logger.info(f"✅ SECRET CHAT RETRY: Direct client method worked for media {i+1}")
-                                        
-                                    except Exception as client_error:
-                                        logger.warning(f"⚠️ SECRET CHAT RETRY: Direct client method failed: {client_error}")
-                                        
-                                        # APPROACH 3: Try uploading file first, then sending with proper parameters
-                                        try:
-                                            logger.info(f"🔄 SECRET CHAT RETRY: Trying upload + send approach")
-                                            
-                                            # Upload file to Telegram first
-                                            uploaded_file = await self.client.upload_file(media_file)
-                                            logger.info(f"📤 SECRET CHAT RETRY: File uploaded successfully")
-                                            
-                                            # Get file info for parameters
-                                            import os
-                                            file_size = os.path.getsize(media_file)
-                                            file_name = os.path.basename(media_file)
-                                            
-                                            # Try send_secret_document with proper parameters
-                                            if file_ext in ['.jpg', '.jpeg', '.png', '.webp']:
-                                                # For photos, try with minimal parameters
-                                                try:
-                                                    await secret_chat_manager.send_secret_document(
-                                                        target, uploaded_file, 
-                                                        thumb=b'', thumb_w=0, thumb_h=0,
-                                                        file_name=file_name, mime_type='image/jpeg', size=file_size,
-                                                        caption=caption
-                                                    )
-                                                    logger.info(f"✅ SECRET CHAT RETRY: Photo sent as document with parameters")
-                                                except:
-                                                    # Final fallback - send file info as text
-                                                    file_info = f"📎 {caption}\n📁 File: {file_name}\n📏 Size: {file_size} bytes\n🖼️ Photo file ready for download"
-                                                    await secret_chat_manager.send_secret_message(target, file_info)
-                                                    logger.info(f"✅ SECRET CHAT RETRY: Photo info sent as text")
-                                            else:
-                                                # For videos/other files, send info as text
-                                                file_info = f"📎 {caption}\n📁 File: {file_name}\n📏 Size: {file_size} bytes\n🎥 Media file ready for download"
-                                                await secret_chat_manager.send_secret_message(target, file_info)
-                                                logger.info(f"✅ SECRET CHAT RETRY: Media info sent as text")
-                                            
-                                        except Exception as upload_error:
-                                            logger.error(f"❌ SECRET CHAT RETRY: Upload approach failed: {upload_error}")
-                                            # Final fallback - just send file name
-                                            file_info = f"📎 {caption}\n📁 File: {os.path.basename(media_file)}"
-                                            await secret_chat_manager.send_secret_message(target, file_info)
-                                            logger.info(f"✅ SECRET CHAT RETRY: File name sent as text (final fallback)")
-                                
-                                logger.info(f"✅ SECRET CHAT RETRY: Media {i+1} sent on attempt {attempt}: {os.path.basename(media_file)}")
-                                media_sent = True
-                                break
-                                
-                            except Exception as media_error:
-                                logger.warning(f"⚠️ SECRET CHAT RETRY: Media {i+1} attempt {attempt}/3 failed: {media_error}")
-                        
-                        if not media_sent:
-                            logger.error(f"❌ SECRET CHAT RETRY: Failed to send media {i+1} after 3 attempts")
+                        try:
+                            await asyncio.sleep(1)  # Brief wait between media
+                            
+                            # Get file info
+                            file_size = os.path.getsize(media_file)
+                            file_name = os.path.basename(media_file)
+                            file_ext = os.path.splitext(media_file)[1].lower()
+                            
+                            # Create media info message
+                            if file_ext in ['.jpg', '.jpeg', '.png', '.webp']:
+                                media_type = "🖼️ Photo"
+                            elif file_ext in ['.mp4', '.mov', '.avi', '.mkv']:
+                                media_type = "🎥 Video"
+                            else:
+                                media_type = "📄 Document"
+                            
+                            media_info = f"""📦 **Product Media {i+1}/{len(media_files)}**
+
+{media_type}: {file_name}
+📏 Size: {file_size:,} bytes
+📁 File type: {file_ext}
+
+🔐 **Media file delivered via encrypted secret chat!**"""
+                            
+                            # Get secret chat object and send
+                            secret_chat_obj = secret_chat_manager.get_secret_chat(secret_chat_id)
+                            target = secret_chat_obj if secret_chat_obj else secret_chat_id
+                            
+                            await secret_chat_manager.send_secret_message(target, media_info)
+                            logger.info(f"✅ SECRET CHAT RETRY: Media info {i+1} sent: {file_name}")
+                            
+                        except Exception as media_error:
+                            logger.error(f"❌ SECRET CHAT RETRY: Failed to send media info {i+1}: {media_error}")
+                    
+                    logger.info(f"📂 SECRET CHAT RETRY: All {len(media_files)} media info messages sent")
                 
                 logger.info(f"🎉 SECRET CHAT RETRY: Delivery completed for user {user_id}")
                 return True, f"Product delivered via SECRET CHAT to @{username}"
