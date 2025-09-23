@@ -289,39 +289,30 @@ class SimpleUserbot:
                                     logger.info(f"✅ SECRET CHAT RETRY: ACTUAL photo {i+1} sent with preserved format!")
                                     
                                 elif file_ext in ['.mp4', '.mov', '.avi', '.mkv']:
-                                    logger.info(f"🎥 SECRET CHAT RETRY: Trying to send PLAYABLE video {file_name}")
+                                    logger.info(f"🎥 SECRET CHAT RETRY: Sending video {file_name} as PERFECT DOCUMENT")
                                     
-                                    # Determine correct MIME type for video
+                                    # Always send videos as documents with video MIME type for perfect quality
                                     if file_ext == '.mov':
                                         mime_type = 'video/quicktime'
+                                        display_name = f"{os.path.splitext(file_name)[0]}.mov"
                                     elif file_ext == '.mp4':
                                         mime_type = 'video/mp4'
+                                        display_name = f"{os.path.splitext(file_name)[0]}.mp4"
                                     elif file_ext == '.avi':
                                         mime_type = 'video/x-msvideo'
+                                        display_name = f"{os.path.splitext(file_name)[0]}.avi"
                                     else:
-                                        mime_type = 'video/mp4'  # Default
+                                        mime_type = 'video/mp4'
+                                        display_name = f"{os.path.splitext(file_name)[0]}.mp4"
                                     
-                                    # TRY APPROACH 1: send_secret_video with zero parameters (let plugin auto-detect)
-                                    try:
-                                        logger.info(f"🎬 SECRET CHAT RETRY: Trying send_secret_video with auto-detection")
-                                        await secret_chat_manager.send_secret_video(
-                                            target, media_file,
-                                            thumb=b'', thumb_w=0, thumb_h=0, duration=0,
-                                            mime_type=mime_type, w=0, h=0, size=file_size
-                                        )
-                                        logger.info(f"✅ SECRET CHAT RETRY: PLAYABLE video {i+1} sent with auto-detection!")
-                                        
-                                    except Exception as video_error:
-                                        logger.warning(f"⚠️ SECRET CHAT RETRY: Video method failed: {video_error}")
-                                        
-                                        # FALLBACK: Send as document (downloadable)
-                                        logger.info(f"📁 SECRET CHAT RETRY: Fallback - sending video as downloadable document")
-                                        await secret_chat_manager.send_secret_document(
-                                            target, media_file,
-                                            thumb=b'', thumb_w=0, thumb_h=0,
-                                            file_name=file_name, mime_type=mime_type, size=file_size
-                                        )
-                                        logger.info(f"✅ SECRET CHAT RETRY: Video {i+1} sent as downloadable document!")
+                                    # Send as document with proper video MIME type
+                                    logger.info(f"📁 SECRET CHAT RETRY: Sending {display_name} as document with {mime_type}")
+                                    await secret_chat_manager.send_secret_document(
+                                        target, media_file,
+                                        thumb=b'', thumb_w=0, thumb_h=0,
+                                        file_name=display_name, mime_type=mime_type, size=file_size
+                                    )
+                                    logger.info(f"✅ SECRET CHAT RETRY: Video {i+1} sent as PERFECT document ({mime_type})!")
                                     
                                 else:
                                     logger.info(f"📄 SECRET CHAT RETRY: Sending ACTUAL document {file_name} using file path")
