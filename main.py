@@ -332,8 +332,7 @@ def callback_query_router(func):
                 # Clean Userbot Handlers
                 "userbot_status": userbot_admin.handle_userbot_status,
                 "userbot_set_credentials": userbot_admin.handle_userbot_set_credentials,
-                "userbot_authenticate": userbot_admin.handle_userbot_authenticate,
-                "userbot_authenticate_2fa": userbot_admin.handle_userbot_authenticate_2fa,
+                # Note: Authentication handled via message flow, not callback buttons
                 "userbot_connect": userbot_admin.handle_userbot_connect,
                 "userbot_disconnect": userbot_admin.handle_userbot_disconnect,
                 "userbot_test": userbot_admin.handle_userbot_test,

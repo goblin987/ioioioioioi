@@ -93,8 +93,24 @@ class TelethonSecretUserbot:
             
             # Create Telethon client with session string (StringSession)
             from telethon.sessions import StringSession
+            
+            # Debug session string format
+            logger.info(f"🔍 TELETHON: Session string length: {len(self.session_string) if self.session_string else 0}")
+            logger.info(f"🔍 TELETHON: Session string type: {type(self.session_string)}")
+            
+            # Handle different session string formats
+            try:
+                if isinstance(self.session_string, str) and len(self.session_string) > 10:
+                    session = StringSession(self.session_string)
+                else:
+                    logger.warning(f"⚠️ TELETHON: Invalid session string format, using empty session")
+                    session = StringSession()
+            except Exception as session_error:
+                logger.error(f"❌ TELETHON: Session creation error: {session_error}")
+                session = StringSession()
+            
             self.client = TelegramClient(
-                StringSession(self.session_string),
+                session,
                 api_id=self.api_id,
                 api_hash=self.api_hash
             )
