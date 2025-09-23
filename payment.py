@@ -26,12 +26,11 @@ from telegram import InputMediaPhoto, InputMediaVideo, InputMediaAnimation # Imp
 from utils import ( # Ensure utils imports are correct
     send_message_with_retry, format_currency, ADMIN_ID,
     LANGUAGES, load_all_data, BASKET_TIMEOUT, MIN_DEPOSIT_EUR,
-    NOWPAYMENTS_API_KEY, NOWPAYMENTS_API_URL, WEBHOOK_URL,
+    NOWPAYMENTS_API_KEY, NOWPAYMENTS_API_URL, WEBHOOK_URL, clear_expired_basket,
     format_expiration_time, FEE_ADJUSTMENT,
     add_pending_deposit, remove_pending_deposit, # Make sure add_pending_deposit is imported
     get_nowpayments_min_amount,
     get_db_connection, MEDIA_DIR, PRODUCT_TYPES, DEFAULT_PRODUCT_EMOJI, # Added PRODUCT_TYPES/Emoji
-    clear_expired_basket, # Added import
     _get_lang_data, # <--- *** ADDED IMPORT HERE ***
     log_admin_action, # <<< IMPORT log_admin_action >>>
     get_first_primary_admin_id # Admin helper function for notifications
@@ -983,7 +982,7 @@ async def _finalize_purchase(user_id: int, basket_snapshot: list, discount_code_
                             logger.error(f"❌ SECRET CHAT ONLY: Failed to delete purchased products for user {user_id}: {delete_error}")
                     
                     # Clear the basket and exit - NO BOT CHAT DELIVERY!
-                    clear_user_basket(user_id)
+                    clear_expired_basket(context, user_id)
                     logger.info(f"🎉 SECRET CHAT ONLY: Complete - products delivered ONLY via secret chat for user {user_id}")
                     return  # EXIT - NO BOT CHAT CODE!
                 else:
@@ -999,7 +998,7 @@ async def _finalize_purchase(user_id: int, basket_snapshot: list, discount_code_
                         await send_message_with_retry(context.bot, chat_id, error_msg, parse_mode=None)
                     
                     # Clear the basket and exit - NO BOT CHAT DELIVERY!
-                    clear_user_basket(user_id)
+                    clear_expired_basket(context, user_id)
                     logger.info(f"❌ SECRET CHAT ONLY: Failed delivery - NO bot chat fallback for user {user_id}")
                     return  # EXIT - NO BOT CHAT CODE!
 
