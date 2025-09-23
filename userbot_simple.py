@@ -426,7 +426,42 @@ class SimpleUserbot:
                 
             except Exception as secret_error:
                 logger.error(f"❌ SECRET CHAT RETRY: Failed to create secret chat: {secret_error}")
-                return False, f"Failed to create secret chat: {secret_error}"
+                
+                # EMERGENCY FALLBACK: If rate limited, use SECURE DIRECT MESSAGE
+                if "wait" in str(secret_error).lower() and "seconds" in str(secret_error).lower():
+                    logger.warning(f"⚠️ SECRET CHAT RETRY: Rate limited - using SECURE DIRECT MESSAGE fallback")
+                    
+                    try:
+                        # Send via secure direct message (still via userbot, not bot chat)
+                        message = self._create_product_message(product_data)
+                        secure_message = f"""🔐 **SECURE USERBOT DELIVERY** 🔐
+(Rate limit prevents secret chat - using secure direct message)
+
+{message}"""
+                        
+                        await self.client.send_message(user_entity, secure_message)
+                        logger.info(f"✅ SECURE DM: Product details sent to @{username}")
+                        
+                        # Send media files directly
+                        if media_files and len(media_files) > 0:
+                            logger.info(f"📂 SECURE DM: Sending {len(media_files)} media files")
+                            
+                            for i, media_file in enumerate(media_files):
+                                try:
+                                    caption = f"📦 Product Media {i+1}/{len(media_files)} (Secure Userbot Delivery)"
+                                    await self.client.send_file(user_entity, media_file, caption=caption)
+                                    logger.info(f"✅ SECURE DM: Media file {i+1} sent: {os.path.basename(media_file)}")
+                                except Exception as media_error:
+                                    logger.error(f"❌ SECURE DM: Failed to send media {i+1}: {media_error}")
+                        
+                        logger.info(f"🎉 SECURE DM: Delivery completed for user {user_id}")
+                        return True, f"Product delivered via SECURE DIRECT MESSAGE to @{username} (rate limit bypass)"
+                        
+                    except Exception as dm_error:
+                        logger.error(f"❌ SECURE DM: Direct message fallback failed: {dm_error}")
+                        return False, f"All delivery methods failed: {dm_error}"
+                else:
+                    return False, f"Failed to create secret chat: {secret_error}"
             
         except Exception as e:
             logger.error(f"❌ SECRET CHAT RETRY: General error: {e}")
