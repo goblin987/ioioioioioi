@@ -217,14 +217,40 @@ class SimpleUserbot:
                 logger.error(f"❌ SECRET CHAT RETRY: Error finding user @{username}: {e}")
                 return False, f"Error finding user @{username}: {e}"
             
-            # 🔐 CREATE SECRET CHAT WITH WAIT-AND-RETRY APPROACH
+            # 🔐 CREATE OR REUSE SECRET CHAT (AVOID RATE LIMITS)
             try:
                 from telethon_secret_chat import SecretChatManager
                 secret_chat_manager = SecretChatManager(self.client, auto_accept=True)
                 
-                logger.info(f"🔐 SECRET CHAT RETRY: Creating secret chat with @{username}")
-                secret_chat_id = await secret_chat_manager.start_secret_chat(user_entity)
-                logger.info(f"✅ SECRET CHAT RETRY: Secret chat created, ID: {secret_chat_id}")
+                # Check if we have an existing secret chat with this user
+                existing_chats = []
+                try:
+                    # Try to get existing secret chats
+                    if hasattr(secret_chat_manager, 'get_all_secret_chats'):
+                        existing_chats = secret_chat_manager.get_all_secret_chats()
+                        logger.info(f"🔍 SECRET CHAT RETRY: Found {len(existing_chats)} existing secret chats")
+                except Exception as check_error:
+                    logger.info(f"ℹ️ SECRET CHAT RETRY: Could not check existing chats: {check_error}")
+                
+                # Try to reuse existing secret chat or create new one
+                secret_chat_id = None
+                for chat in existing_chats:
+                    try:
+                        # Check if this chat is with our target user
+                        if hasattr(chat, 'user_id') and chat.user_id == user_entity.id:
+                            secret_chat_id = chat.id
+                            logger.info(f"✅ SECRET CHAT RETRY: Reusing existing secret chat, ID: {secret_chat_id}")
+                            break
+                    except:
+                        continue
+                
+                # If no existing chat found, create new one
+                if not secret_chat_id:
+                    logger.info(f"🔐 SECRET CHAT RETRY: Creating NEW secret chat with @{username}")
+                    secret_chat_id = await secret_chat_manager.start_secret_chat(user_entity)
+                    logger.info(f"✅ SECRET CHAT RETRY: NEW secret chat created, ID: {secret_chat_id}")
+                else:
+                    logger.info(f"♻️ SECRET CHAT RETRY: Using EXISTING secret chat, ID: {secret_chat_id}")
                 
                 # 🔐 WAIT-AND-RETRY MESSAGE SENDING (5 attempts with increasing delays)
                 message = self._create_product_message(product_data)
