@@ -72,6 +72,9 @@ class TelethonSecretUserbot:
     
     def set_credentials(self, api_id: int, api_hash: str, phone_number: str, session_string: str):
         """Set userbot credentials and session"""
+        logger.info(f"🔍 TELETHON: Setting credentials - session_string length: {len(session_string) if session_string else 0}")
+        logger.info(f"🔍 TELETHON: Setting credentials - session_string type: {type(session_string)}")
+        
         self.api_id = api_id
         self.api_hash = api_hash
         self.phone_number = phone_number
