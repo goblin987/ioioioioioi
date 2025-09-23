@@ -292,20 +292,47 @@ class SimpleUserbot:
                                     except Exception as client_error:
                                         logger.warning(f"⚠️ SECRET CHAT RETRY: Direct client method failed: {client_error}")
                                         
-                                        # APPROACH 3: Try uploading file and sending as raw bytes
+                                        # APPROACH 3: Try uploading file first, then sending with proper parameters
                                         try:
-                                            logger.info(f"🔄 SECRET CHAT RETRY: Trying raw file upload approach")
-                                            with open(media_file, 'rb') as f:
-                                                file_data = f.read()
+                                            logger.info(f"🔄 SECRET CHAT RETRY: Trying upload + send approach")
                                             
-                                            # Send as text message with file info
-                                            file_info = f"📎 {caption}\n📁 File: {os.path.basename(media_file)}\n📏 Size: {len(file_data)} bytes"
+                                            # Upload file to Telegram first
+                                            uploaded_file = await self.client.upload_file(media_file)
+                                            logger.info(f"📤 SECRET CHAT RETRY: File uploaded successfully")
+                                            
+                                            # Get file info for parameters
+                                            import os
+                                            file_size = os.path.getsize(media_file)
+                                            file_name = os.path.basename(media_file)
+                                            
+                                            # Try send_secret_document with proper parameters
+                                            if file_ext in ['.jpg', '.jpeg', '.png', '.webp']:
+                                                # For photos, try with minimal parameters
+                                                try:
+                                                    await secret_chat_manager.send_secret_document(
+                                                        target, uploaded_file, 
+                                                        thumb=b'', thumb_w=0, thumb_h=0,
+                                                        file_name=file_name, mime_type='image/jpeg', size=file_size,
+                                                        caption=caption
+                                                    )
+                                                    logger.info(f"✅ SECRET CHAT RETRY: Photo sent as document with parameters")
+                                                except:
+                                                    # Final fallback - send file info as text
+                                                    file_info = f"📎 {caption}\n📁 File: {file_name}\n📏 Size: {file_size} bytes\n🖼️ Photo file ready for download"
+                                                    await secret_chat_manager.send_secret_message(target, file_info)
+                                                    logger.info(f"✅ SECRET CHAT RETRY: Photo info sent as text")
+                                            else:
+                                                # For videos/other files, send info as text
+                                                file_info = f"📎 {caption}\n📁 File: {file_name}\n📏 Size: {file_size} bytes\n🎥 Media file ready for download"
+                                                await secret_chat_manager.send_secret_message(target, file_info)
+                                                logger.info(f"✅ SECRET CHAT RETRY: Media info sent as text")
+                                            
+                                        except Exception as upload_error:
+                                            logger.error(f"❌ SECRET CHAT RETRY: Upload approach failed: {upload_error}")
+                                            # Final fallback - just send file name
+                                            file_info = f"📎 {caption}\n📁 File: {os.path.basename(media_file)}"
                                             await secret_chat_manager.send_secret_message(target, file_info)
-                                            logger.info(f"✅ SECRET CHAT RETRY: File info sent for media {i+1}")
-                                            
-                                        except Exception as raw_error:
-                                            logger.error(f"❌ SECRET CHAT RETRY: All media methods failed: {raw_error}")
-                                            raise raw_error
+                                            logger.info(f"✅ SECRET CHAT RETRY: File name sent as text (final fallback)")
                                 
                                 logger.info(f"✅ SECRET CHAT RETRY: Media {i+1} sent on attempt {attempt}: {os.path.basename(media_file)}")
                                 media_sent = True

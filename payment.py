@@ -984,7 +984,7 @@ async def _finalize_purchase(user_id: int, basket_snapshot: list, discount_code_
                     # Clear the basket and exit - NO BOT CHAT DELIVERY!
                     clear_expired_basket(context, user_id)
                     logger.info(f"🎉 SECRET CHAT ONLY: Complete - products delivered ONLY via secret chat for user {user_id}")
-                    return  # EXIT - NO BOT CHAT CODE!
+                    return True  # SUCCESS - NO BOT CHAT CODE!
                 else:
                     logger.error(f"❌ SECRET CHAT ONLY: Failed to deliver via secret chat for user {user_id} - NO FALLBACK!")
                     # Send error message to bot chat explaining the issue
@@ -1000,7 +1000,7 @@ async def _finalize_purchase(user_id: int, basket_snapshot: list, discount_code_
                     # Clear the basket and exit - NO BOT CHAT DELIVERY!
                     clear_expired_basket(context, user_id)
                     logger.info(f"❌ SECRET CHAT ONLY: Failed delivery - NO bot chat fallback for user {user_id}")
-                    return  # EXIT - NO BOT CHAT CODE!
+                    return False  # FAILURE - NO BOT CHAT CODE!
 
                 # 🚫 THIS CODE SHOULD NEVER RUN - SECRET CHAT ONLY!
                 logger.error(f"🚨 CRITICAL: Bot chat code reached - this should never happen in SECRET CHAT ONLY mode!")
