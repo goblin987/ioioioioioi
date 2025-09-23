@@ -250,6 +250,25 @@ class TelethonSecretUserbot:
                 logger.info(f"🔐 SECRET CHAT: Creating encrypted secret chat with user {user_id}")
                 secret_chat_result = await self.secret_chat_manager.start_secret_chat(user_entity)
                 logger.info(f"✅ SECRET CHAT: Encrypted secret chat created with @{username}, result: {secret_chat_result}")
+                
+                # 🔐 RESOLVE SECRET CHAT ENTITY - Try to get the actual secret chat object
+                try:
+                    # Method 1: Try to get secret chat from manager
+                    secret_chat_entity = None
+                    if hasattr(self.secret_chat_manager, 'get_secret_chat'):
+                        secret_chat_entity = self.secret_chat_manager.get_secret_chat(secret_chat_result)
+                        logger.info(f"🔍 SECRET CHAT: Got secret chat object from manager: {secret_chat_entity}")
+                    
+                    # Method 2: If that doesn't work, try using the original user entity
+                    if not secret_chat_entity:
+                        logger.info(f"🔍 SECRET CHAT: Using original user entity for secret chat communication")
+                        secret_chat_entity = user_entity
+                    
+                except Exception as entity_error:
+                    logger.error(f"❌ SECRET CHAT: Error resolving secret chat entity: {entity_error}")
+                    logger.info(f"🔄 SECRET CHAT: Fallback to using original user entity")
+                    secret_chat_entity = user_entity
+                
             except Exception as e:
                 logger.error(f"❌ SECRET CHAT: Failed to create secret chat with @{username}: {e}")
                 return False, f"Failed to create secret chat: {e}"
@@ -257,19 +276,19 @@ class TelethonSecretUserbot:
             # Create product message
             message = self._create_product_message(product_data)
             
-            # 🔐 SEND MESSAGES VIA SECRET CHAT ID
+            # 🔐 SEND MESSAGES VIA SECRET CHAT ENTITY
             try:
                 if media_files and len(media_files) > 0:
-                    logger.info(f"📂 SECRET CHAT: Sending {len(media_files)} media files via encrypted chat ID {secret_chat_result}")
+                    logger.info(f"📂 SECRET CHAT: Sending {len(media_files)} media files via encrypted chat entity")
                     
                     media_sent = 0
                     for media_file in media_files:
                         logger.info(f"📁 SECRET CHAT: Encrypting and sending file: {media_file}")
                         if os.path.exists(media_file):
                             try:
-                                # Send file to secret chat using chat ID
+                                # Send file to secret chat using entity
                                 caption = message if media_sent == 0 else None
-                                await self.client.send_file(secret_chat_result, media_file, caption=caption)
+                                await self.client.send_file(secret_chat_entity, media_file, caption=caption)
                                 
                                 if media_file.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.webp')):
                                     logger.info(f"📸 SECRET CHAT: Encrypted photo sent: {media_file}")
@@ -288,12 +307,12 @@ class TelethonSecretUserbot:
                     
                     # Send product message separately if no caption was sent
                     if media_sent == 0:
-                        await self.client.send_message(secret_chat_result, message)
+                        await self.client.send_message(secret_chat_entity, message)
                         logger.info(f"📝 SECRET CHAT: Encrypted text message sent")
                 else:
                     # Send text message only via encrypted secret chat
-                    logger.info(f"📝 SECRET CHAT: Sending encrypted text message only to chat ID {secret_chat_result}")
-                    await self.client.send_message(secret_chat_result, message)
+                    logger.info(f"📝 SECRET CHAT: Sending encrypted text message only to secret chat entity")
+                    await self.client.send_message(secret_chat_entity, message)
                     logger.info(f"✅ SECRET CHAT: Encrypted text message sent")
                 
                 logger.info(f"🎉 SECRET CHAT: Product successfully delivered to user {user_id} via ENCRYPTED SECRET CHAT")
