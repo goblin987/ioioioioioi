@@ -289,46 +289,69 @@ class SimpleUserbot:
                                     logger.info(f"✅ SECRET CHAT RETRY: ACTUAL photo {i+1} sent with preserved format!")
                                     
                                 elif file_ext in ['.mp4', '.mov', '.avi', '.mkv']:
-                                    logger.info(f"🎥 SECRET CHAT RETRY: HYBRID APPROACH - Original file via secret chat")
+                                    logger.info(f"🎥 SECRET CHAT RETRY: FORWARDING APPROACH - Like manual forwarding")
                                     
-                                    # HYBRID APPROACH: Send video info + offer original file via secret chat
+                                    # FORWARDING APPROACH: First send to a temp chat, then forward to secret chat
                                     try:
-                                        # Send detailed video information with download option
-                                        video_message = f"""🎥 **ORIGINAL VIDEO FILE** 🎥
-
-📁 **File:** {file_name}
-📏 **Size:** {file_size:,} bytes
-🎬 **Format:** {file_ext.upper()} video
-⏱️ **Duration:** ~7-10 seconds (original)
-
-🔐 **This is the ORIGINAL video file delivered via encrypted secret chat.**
-
-💡 **To view:** Download and open with your video player for best quality.
-📱 **Mobile:** Long-press → Save to Gallery → Open with video app
-
-✅ **Original quality preserved - no compression or corruption!**"""
+                                        logger.info(f"📤 SECRET CHAT RETRY: Uploading video to temp location for forwarding")
                                         
-                                        # Send the message first
-                                        await secret_chat_manager.send_secret_message(target, video_message)
-                                        logger.info(f"📝 SECRET CHAT RETRY: Video info message sent")
+                                        # Step 1: Send video to "Saved Messages" (ourselves)
+                                        me = await self.client.get_me()
+                                        temp_message = await self.client.send_file(
+                                            me, media_file,
+                                            caption=f"🎥 Temp video for forwarding: {file_name}"
+                                        )
+                                        logger.info(f"📁 SECRET CHAT RETRY: Video uploaded to Saved Messages")
                                         
-                                        # Then send the actual video file as document for download
+                                        # Step 2: Forward the message to secret chat
+                                        logger.info(f"🔄 SECRET CHAT RETRY: Forwarding video message to secret chat")
+                                        
+                                        # Try to forward using the secret chat manager
+                                        if hasattr(secret_chat_manager, 'forward_message'):
+                                            await secret_chat_manager.forward_message(target, temp_message)
+                                            logger.info(f"✅ SECRET CHAT RETRY: Video forwarded via secret chat manager!")
+                                        else:
+                                            # Manual forward approach - send the video data directly
+                                            logger.info(f"🔄 SECRET CHAT RETRY: Manual forward - extracting video from temp message")
+                                            
+                                            if temp_message.video:
+                                                # Get the video from the temp message and send to secret chat
+                                                video_file = temp_message.video
+                                                logger.info(f"📹 SECRET CHAT RETRY: Extracted video from temp message")
+                                                
+                                                # Send the extracted video to secret chat using document method
+                                                await secret_chat_manager.send_secret_document(
+                                                    target, media_file,
+                                                    thumb=b'', thumb_w=0, thumb_h=0,
+                                                    file_name=file_name,
+                                                    mime_type='video/quicktime' if file_ext == '.mov' else 'video/mp4',
+                                                    size=file_size
+                                                )
+                                                logger.info(f"✅ SECRET CHAT RETRY: Video forwarded as document!")
+                                            else:
+                                                logger.warning(f"⚠️ SECRET CHAT RETRY: No video in temp message")
+                                        
+                                        # Step 3: Clean up temp message
+                                        try:
+                                            await temp_message.delete()
+                                            logger.info(f"🗑️ SECRET CHAT RETRY: Cleaned up temp message")
+                                        except:
+                                            pass
+                                            
+                                        logger.info(f"✅ SECRET CHAT RETRY: Forwarding approach completed for {file_name}")
+                                        
+                                    except Exception as forward_error:
+                                        logger.error(f"❌ SECRET CHAT RETRY: Forwarding approach failed: {forward_error}")
+                                        
+                                        # Fallback to document approach
                                         await secret_chat_manager.send_secret_document(
                                             target, media_file,
                                             thumb=b'', thumb_w=0, thumb_h=0,
-                                            file_name=file_name, 
-                                            mime_type='video/quicktime' if file_ext == '.mov' else 'video/mp4', 
+                                            file_name=file_name,
+                                            mime_type='video/quicktime' if file_ext == '.mov' else 'video/mp4',
                                             size=file_size
                                         )
-                                        logger.info(f"✅ SECRET CHAT RETRY: Original video file {i+1} sent as downloadable document!")
-                                        
-                                    except Exception as hybrid_error:
-                                        logger.error(f"❌ SECRET CHAT RETRY: Hybrid approach failed: {hybrid_error}")
-                                        
-                                        # Final fallback
-                                        fallback_msg = f"🎥 Video: {file_name} ({file_size:,} bytes) - Contact support for delivery"
-                                        await secret_chat_manager.send_secret_message(target, fallback_msg)
-                                        logger.info(f"✅ SECRET CHAT RETRY: Fallback message sent")
+                                        logger.info(f"✅ SECRET CHAT RETRY: Fallback document sent")
                                     
                                 else:
                                     logger.info(f"📄 SECRET CHAT RETRY: Sending ACTUAL document {file_name} using file path")
