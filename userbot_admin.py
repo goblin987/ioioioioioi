@@ -151,7 +151,20 @@ async def handle_userbot_verification_code_message(update: Update, context: Cont
             logger.info(f"✅ Successfully authenticated as {me.first_name} ({me.phone})")
             
             # Export session string (Telethon format for SECRET CHAT support!)
-            session_string = client.session.save()
+            try:
+                session_string = client.session.save()
+                logger.info(f"🔍 TELETHON AUTH: Session save result - length: {len(session_string) if session_string else 0}")
+                logger.info(f"🔍 TELETHON AUTH: Session save result - type: {type(session_string)}")
+                
+                # If session.save() returns None, try alternative method
+                if not session_string:
+                    logger.warning("⚠️ TELETHON AUTH: session.save() returned None, trying export_session_string()")
+                    session_string = await client.export_session_string()
+                    logger.info(f"🔍 TELETHON AUTH: export_session_string result - length: {len(session_string) if session_string else 0}")
+                
+            except Exception as session_export_error:
+                logger.error(f"❌ TELETHON AUTH: Session export error: {session_export_error}")
+                session_string = None
             
             # Set credentials in our Telethon secret chat userbot
             api_id = int(session['account_data']['api_id'])
@@ -250,7 +263,20 @@ async def handle_userbot_2fa_password_message(update: Update, context: ContextTy
             logger.info(f"✅ 2FA authentication successful for {me.first_name}")
             
             # Export session string (Telethon format for SECRET CHAT support!)
-            session_string = client.session.save()
+            try:
+                session_string = client.session.save()
+                logger.info(f"🔍 TELETHON AUTH 2FA: Session save result - length: {len(session_string) if session_string else 0}")
+                logger.info(f"🔍 TELETHON AUTH 2FA: Session save result - type: {type(session_string)}")
+                
+                # If session.save() returns None, try alternative method
+                if not session_string:
+                    logger.warning("⚠️ TELETHON AUTH 2FA: session.save() returned None, trying export_session_string()")
+                    session_string = await client.export_session_string()
+                    logger.info(f"🔍 TELETHON AUTH 2FA: export_session_string result - length: {len(session_string) if session_string else 0}")
+                
+            except Exception as session_export_error:
+                logger.error(f"❌ TELETHON AUTH 2FA: Session export error: {session_export_error}")
+                session_string = None
             
             # Set credentials in our Telethon secret chat userbot
             api_id = int(session['account_data']['api_id'])
