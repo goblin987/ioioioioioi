@@ -1129,18 +1129,7 @@ async def _finalize_purchase(user_id: int, basket_snapshot: list, discount_code_
                         if not f.closed: await asyncio.to_thread(f.close)
                     except Exception as close_e: logger.warning(f"Error closing file handle during final cleanup: {close_e}")
 
-                # --- Final Message to User ---
-                leave_review_button = lang_data.get("leave_review_button", "Leave a Review")
-                keyboard = [[InlineKeyboardButton(f"✍️ {leave_review_button}", callback_data="leave_review_now")]]
-                await send_message_with_retry(context.bot, chat_id, "Thank you for your purchase!", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
-                
-            except Exception as media_error:
-                logger.critical(f"🚨 CRITICAL: Bot chat fallback delivery failed for user {user_id} after userbot failure! Error: {media_error}")
-                media_delivery_successful = False
-                # Send fallback message to user
-                await send_message_with_retry(context.bot, chat_id, 
-                    "⚠️ Your payment was successful, but there was an issue delivering your product. Please contact support immediately with your payment details.", 
-                    parse_mode=None)
+                # 🔐 SECRET CHAT ONLY: No final message to bot chat - everything via secret chat!
         else:
             # Userbot delivery succeeded, no bot chat delivery needed
             logger.info(f"🎯 USERBOT SUCCESS: Secret chat delivery completed for user {user_id} - skipping bot chat entirely")

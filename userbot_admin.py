@@ -10,7 +10,7 @@ import re
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from telegram.constants import ParseMode
-from userbot_telethon import telethon_userbot as userbot
+from userbot_simple import simple_userbot as userbot
 from utils import is_any_admin
 
 logger = logging.getLogger(__name__)
