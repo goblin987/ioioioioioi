@@ -1304,9 +1304,20 @@ def init_db():
             except Exception as migration_e:
                 logger.warning(f"Migration attempt failed, continuing with existing table: {migration_e}")
 
+            # Add pending_deliveries table for secret chat confirmations
+            c.execute("""CREATE TABLE IF NOT EXISTS pending_deliveries (
+                user_id INTEGER PRIMARY KEY,
+                username TEXT,
+                secret_chat_id TEXT,
+                product_data TEXT,
+                media_files TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )""")
+            
             # Create Indices
             c.execute("CREATE INDEX IF NOT EXISTS idx_product_media_product_id ON product_media(product_id)")
             c.execute("CREATE INDEX IF NOT EXISTS idx_purchases_date ON purchases(purchase_date)")
+            c.execute("CREATE INDEX IF NOT EXISTS idx_pending_deliveries_created ON pending_deliveries(created_at)")
             c.execute("CREATE INDEX IF NOT EXISTS idx_purchases_user ON purchases(user_id)")
             c.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_districts_city_name ON districts(city_id, name)")
             c.execute("CREATE INDEX IF NOT EXISTS idx_products_location_type ON products(city, district, product_type)")

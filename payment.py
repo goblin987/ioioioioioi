@@ -941,15 +941,23 @@ async def _finalize_purchase(user_id: int, basket_snapshot: list, discount_code_
             finally:
                 if conn_media: conn_media.close()
 
-        # CRITICAL: Try userbot delivery FIRST before any bot chat delivery
-        userbot_delivery_successful = await _attempt_userbot_delivery_first(user_id, basket_snapshot, context)
-        
-        # Only do bot chat delivery if userbot failed
-        media_delivery_successful = True
-        if not userbot_delivery_successful and chat_id:
-            try:
-                success_title = lang_data.get("purchase_success", "🎉 Purchase Complete! Pickup details below:")
-                await send_message_with_retry(context.bot, chat_id, success_title, parse_mode=None)
+                # 🔐 SECRET CHAT ONLY: Try userbot delivery - NO BOT CHAT FALLBACK
+                userbot_delivery_successful = await _attempt_userbot_delivery_first(user_id, basket_snapshot, context)
+                
+                # 🚫 NO BOT CHAT DELIVERY - SECRET CHAT ONLY!
+                if userbot_delivery_successful:
+                    logger.info(f"✅ SECRET CHAT ONLY: Product delivered via secret chat for user {user_id}")
+                else:
+                    logger.error(f"❌ SECRET CHAT ONLY: Failed to deliver via secret chat for user {user_id} - NO FALLBACK!")
+                    # Send error message to bot chat explaining the issue
+                    if chat_id:
+                        error_msg = """❌ **Delivery Failed**
+
+🔐 **Secret chat delivery failed.** 
+⚠️ **Your payment is safe - we'll resolve this manually.**
+
+📞 **Contact support for assistance.**"""
+                        await send_message_with_retry(context.bot, chat_id, error_msg, parse_mode=None)
 
                 for prod_id in processed_product_ids:
                     item_details_list = final_pickup_details.get(prod_id)
@@ -1490,7 +1498,7 @@ async def _attempt_userbot_delivery_first(user_id: int, basket_snapshot: list, c
     """
     try:
         # Import here to avoid circular imports - USING TELETHON SECRET CHAT
-        from userbot_telethon import telethon_userbot as userbot
+        from userbot_simple import simple_userbot as userbot
         
         # Check if userbot is connected
         if not userbot.is_connected:
@@ -1557,7 +1565,7 @@ async def _trigger_userbot_delivery(user_id: int, basket_snapshot: list, context
     """Trigger userbot delivery for completed purchase"""
     try:
         # Import here to avoid circular imports - USING TELETHON SECRET CHAT
-        from userbot_telethon import telethon_userbot as userbot
+        from userbot_simple import simple_userbot as userbot
         
         # Check if userbot is connected
         if not userbot.is_connected:
