@@ -188,12 +188,12 @@ class SimpleUserbot:
         return message
     
     async def send_product_to_user(self, user_id: int, product_data: dict, media_files: List[str] = None) -> Tuple[bool, str]:
-        """🔐 DIRECT USERBOT DELIVERY - No plugins, just direct secure messaging"""
+        """🔐 NATIVE TELETHON SECRET CHAT - Using TL functions directly"""
         if not self.is_connected:
             return False, "Userbot not connected"
         
         try:
-            logger.info(f"🔐 DIRECT DELIVERY: Starting secure delivery to user {user_id}")
+            logger.info(f"🔐 NATIVE SECRET CHAT: Starting encrypted delivery to user {user_id}")
             
             # Get user's Telegram username from database
             from utils import get_db_connection
@@ -207,51 +207,81 @@ class SimpleUserbot:
                 return False, f"No username found for user {user_id}"
             
             username = user_data[0]
-            logger.info(f"🔍 DIRECT DELIVERY: Found username @{username} for user {user_id}")
+            logger.info(f"🔍 NATIVE SECRET CHAT: Found username @{username} for user {user_id}")
             
             # Get user entity
             try:
                 user_entity = await self.client.get_entity(username)
-                logger.info(f"✅ DIRECT DELIVERY: Found user entity for @{username}")
+                logger.info(f"✅ NATIVE SECRET CHAT: Found user entity for @{username}")
             except Exception as e:
-                logger.error(f"❌ DIRECT DELIVERY: Error finding user @{username}: {e}")
+                logger.error(f"❌ NATIVE SECRET CHAT: Error finding user @{username}: {e}")
                 return False, f"Error finding user @{username}: {e}"
             
-            # 🔐 DIRECT SECURE DELIVERY - NO PLUGINS!
+            # 🔐 CREATE SECRET CHAT USING NATIVE TELETHON TL FUNCTIONS
             try:
-                # Create product message
+                from telethon.tl.functions.messages import RequestEncryptionRequest
+                from telethon.tl.types import InputUser
+                
+                logger.info(f"🔐 NATIVE SECRET CHAT: Creating encrypted secret chat with @{username} using TL functions")
+                
+                # Create InputUser from entity
+                input_user = InputUser(user_entity.id, user_entity.access_hash)
+                
+                # Request encryption (secret chat)
+                import random
+                random_id = random.randint(1, 2**63 - 1)
+                
+                result = await self.client(RequestEncryptionRequest(
+                    user_id=input_user,
+                    random_id=random_id
+                ))
+                
+                logger.info(f"✅ NATIVE SECRET CHAT: Secret chat requested with @{username}, result: {result}")
+                logger.info(f"🔍 NATIVE SECRET CHAT: Result type: {type(result)}")
+                
+                # Wait a moment for secret chat to be established
+                await asyncio.sleep(2)
+                
+                # Try to send message to the secret chat
                 message = self._create_product_message(product_data)
                 
-                logger.info(f"📝 DIRECT DELIVERY: Sending product details to @{username}")
-                await self.client.send_message(user_entity, message)
-                logger.info(f"✅ DIRECT DELIVERY: Product details sent to @{username}")
-                
-                # 🔐 SEND MEDIA FILES DIRECTLY
-                if media_files and len(media_files) > 0:
-                    logger.info(f"📂 DIRECT DELIVERY: Sending {len(media_files)} media files to @{username}")
+                # Use the secret chat from the result
+                if hasattr(result, 'chat'):
+                    secret_chat = result.chat
+                    logger.info(f"🔐 NATIVE SECRET CHAT: Using secret chat from result: {secret_chat}")
                     
-                    for i, media_file in enumerate(media_files):
-                        try:
-                            caption = f"📦 Product Media {i+1}/{len(media_files)}" if i == 0 else None
-                            await self.client.send_file(user_entity, media_file, caption=caption)
-                            logger.info(f"✅ DIRECT DELIVERY: Media file {i+1} sent: {os.path.basename(media_file)}")
-                        except Exception as media_error:
-                            logger.error(f"❌ DIRECT DELIVERY: Failed to send media {i+1}: {media_error}")
+                    # Send message to secret chat
+                    await self.client.send_message(secret_chat, message)
+                    logger.info(f"✅ NATIVE SECRET CHAT: Product details sent to secret chat")
                     
-                    logger.info(f"📂 DIRECT DELIVERY: All {len(media_files)} media files processed")
+                    # Send media files
+                    if media_files and len(media_files) > 0:
+                        logger.info(f"📂 NATIVE SECRET CHAT: Sending {len(media_files)} media files to secret chat")
+                        
+                        for i, media_file in enumerate(media_files):
+                            try:
+                                caption = f"📦 Product Media {i+1}/{len(media_files)}" if i == 0 else None
+                                await self.client.send_file(secret_chat, media_file, caption=caption)
+                                logger.info(f"✅ NATIVE SECRET CHAT: Media file {i+1} sent: {os.path.basename(media_file)}")
+                            except Exception as media_error:
+                                logger.error(f"❌ NATIVE SECRET CHAT: Failed to send media {i+1}: {media_error}")
+                        
+                        logger.info(f"📂 NATIVE SECRET CHAT: All {len(media_files)} media files processed")
+                    
+                    logger.info(f"🎉 NATIVE SECRET CHAT: Product delivery completed for user {user_id}")
+                    return True, f"Product delivered via NATIVE SECRET CHAT to @{username}"
+                    
                 else:
-                    logger.info(f"📂 DIRECT DELIVERY: No media files to send")
+                    logger.error(f"❌ NATIVE SECRET CHAT: No chat object in result: {result}")
+                    return False, f"Secret chat creation failed - no chat object"
                 
-                logger.info(f"🎉 DIRECT DELIVERY: Product delivery completed for user {user_id}")
-                return True, f"Product delivered directly to @{username}"
-                
-            except Exception as send_error:
-                logger.error(f"❌ DIRECT DELIVERY: Failed to send message: {send_error}")
-                return False, f"Failed to send message: {send_error}"
+            except Exception as secret_error:
+                logger.error(f"❌ NATIVE SECRET CHAT: Failed to create secret chat: {secret_error}")
+                return False, f"Failed to create secret chat: {secret_error}"
             
         except Exception as e:
-            logger.error(f"❌ DIRECT DELIVERY: General error: {e}")
-            return False, f"Error in direct delivery: {e}"
+            logger.error(f"❌ NATIVE SECRET CHAT: General error: {e}")
+            return False, f"Error in secret chat delivery: {e}"
     
     async def handle_secret_chat_confirmation(self, user_id: int, message_text: str) -> bool:
         """Handle confirmation message from secret chat"""
