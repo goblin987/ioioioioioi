@@ -291,13 +291,23 @@ class SimpleUserbot:
                                 elif file_ext in ['.mp4', '.mov', '.avi', '.mkv']:
                                     logger.info(f"🎥 SECRET CHAT RETRY: Sending ACTUAL video {file_name} using file path")
                                     
-                                    # Try send_secret_video with file path to preserve format
+                                    # Determine correct MIME type for video
+                                    if file_ext == '.mov':
+                                        mime_type = 'video/quicktime'
+                                    elif file_ext == '.mp4':
+                                        mime_type = 'video/mp4'
+                                    elif file_ext == '.avi':
+                                        mime_type = 'video/x-msvideo'
+                                    else:
+                                        mime_type = 'video/mp4'  # Default
+                                    
+                                    # Try send_secret_video with correct parameters
                                     await secret_chat_manager.send_secret_video(
                                         target, media_file,  # Use file path, not bytes
-                                        thumb=b'', thumb_w=100, thumb_h=100, duration=30,
-                                        mime_type='video/mp4', w=640, h=480, size=file_size
+                                        thumb=b'', thumb_w=320, thumb_h=240, duration=60,  # Better video params
+                                        mime_type=mime_type, w=1280, h=720, size=file_size  # HD dimensions
                                     )
-                                    logger.info(f"✅ SECRET CHAT RETRY: ACTUAL video {i+1} sent with preserved format!")
+                                    logger.info(f"✅ SECRET CHAT RETRY: ACTUAL video {i+1} sent with correct MIME type ({mime_type})!")
                                     
                                 else:
                                     logger.info(f"📄 SECRET CHAT RETRY: Sending ACTUAL document {file_name} using file path")
