@@ -257,19 +257,19 @@ class TelethonSecretUserbot:
             # Create product message
             message = self._create_product_message(product_data)
             
-            # 🔐 SEND MESSAGES VIA SECRET CHAT MANAGER
+            # 🔐 SEND MESSAGES VIA SECRET CHAT ID
             try:
                 if media_files and len(media_files) > 0:
-                    logger.info(f"📂 SECRET CHAT: Sending {len(media_files)} media files via encrypted chat")
+                    logger.info(f"📂 SECRET CHAT: Sending {len(media_files)} media files via encrypted chat ID {secret_chat_result}")
                     
                     media_sent = 0
                     for media_file in media_files:
                         logger.info(f"📁 SECRET CHAT: Encrypting and sending file: {media_file}")
                         if os.path.exists(media_file):
                             try:
-                                # Send file via SecretChatManager directly
+                                # Send file to secret chat using chat ID
                                 caption = message if media_sent == 0 else None
-                                await self.secret_chat_manager.send_file(user_entity, media_file, caption=caption)
+                                await self.client.send_file(secret_chat_result, media_file, caption=caption)
                                 
                                 if media_file.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.webp')):
                                     logger.info(f"📸 SECRET CHAT: Encrypted photo sent: {media_file}")
@@ -288,12 +288,12 @@ class TelethonSecretUserbot:
                     
                     # Send product message separately if no caption was sent
                     if media_sent == 0:
-                        await self.secret_chat_manager.send_message(user_entity, message)
+                        await self.client.send_message(secret_chat_result, message)
                         logger.info(f"📝 SECRET CHAT: Encrypted text message sent")
                 else:
                     # Send text message only via encrypted secret chat
-                    logger.info(f"📝 SECRET CHAT: Sending encrypted text message only")
-                    await self.secret_chat_manager.send_message(user_entity, message)
+                    logger.info(f"📝 SECRET CHAT: Sending encrypted text message only to chat ID {secret_chat_result}")
+                    await self.client.send_message(secret_chat_result, message)
                     logger.info(f"✅ SECRET CHAT: Encrypted text message sent")
                 
                 logger.info(f"🎉 SECRET CHAT: Product successfully delivered to user {user_id} via ENCRYPTED SECRET CHAT")
