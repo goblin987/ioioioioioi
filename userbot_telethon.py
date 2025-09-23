@@ -276,20 +276,46 @@ class TelethonSecretUserbot:
                     await secret_chat_object.send(message)
                     logger.info(f"✅ SECRET CHAT: Message sent via secret chat send method")
                     
-                elif secret_chat_object and str(secret_chat_object).isdigit():
-                    # It's an ID, try to use it with the manager
+                elif secret_chat_object and isinstance(secret_chat_object, int):
+                    # It's an ID (positive or negative), try to use it with the manager
                     logger.info(f"🔢 SECRET CHAT: Object is an ID ({secret_chat_object}), trying manager methods")
                     
                     if hasattr(self.secret_chat_manager, 'send_message_to_secret_chat'):
+                        logger.info(f"🔐 SECRET CHAT: Trying send_message_to_secret_chat with ID {secret_chat_object}")
                         await self.secret_chat_manager.send_message_to_secret_chat(secret_chat_object, message)
                         logger.info(f"✅ SECRET CHAT: Message sent via manager send_message_to_secret_chat")
                     elif hasattr(self.secret_chat_manager, 'send_message'):
+                        logger.info(f"🔐 SECRET CHAT: Trying send_message with ID {secret_chat_object}")
                         await self.secret_chat_manager.send_message(secret_chat_object, message)
                         logger.info(f"✅ SECRET CHAT: Message sent via manager send_message")
                     else:
-                        logger.warning(f"⚠️ SECRET CHAT: No manager methods found, using fallback")
-                        await self.client.send_message(user_entity, message)
-                        logger.info(f"✅ SECRET CHAT: Message sent to user entity (fallback)")
+                        # Try using the secret chat ID directly with Telethon client
+                        logger.info(f"🔐 SECRET CHAT: Trying direct client.send_message to secret chat ID {secret_chat_object}")
+                        await self.client.send_message(secret_chat_object, message)
+                        logger.info(f"✅ SECRET CHAT: Message sent directly to secret chat ID")
+                    
+                    # 🔐 NOW SEND MEDIA FILES TO SECRET CHAT
+                    if media_files and len(media_files) > 0:
+                        logger.info(f"📂 SECRET CHAT: Sending {len(media_files)} media files to secret chat")
+                        for i, media_file in enumerate(media_files):
+                            try:
+                                caption = f"📦 Product Media {i+1}/{len(media_files)}" if i == 0 else None
+                                
+                                if hasattr(self.secret_chat_manager, 'send_file_to_secret_chat'):
+                                    await self.secret_chat_manager.send_file_to_secret_chat(secret_chat_object, media_file, caption=caption)
+                                elif hasattr(self.secret_chat_manager, 'send_file'):
+                                    await self.secret_chat_manager.send_file(secret_chat_object, media_file, caption=caption)
+                                else:
+                                    # Direct client approach
+                                    await self.client.send_file(secret_chat_object, media_file, caption=caption)
+                                    
+                                logger.info(f"✅ SECRET CHAT: Media file {i+1} sent to secret chat: {os.path.basename(media_file)}")
+                            except Exception as media_error:
+                                logger.error(f"❌ SECRET CHAT: Failed to send media {i+1}: {media_error}")
+                        
+                        logger.info(f"📂 SECRET CHAT: All {len(media_files)} media files processed for secret chat")
+                    else:
+                        logger.info(f"📂 SECRET CHAT: No media files to send")
                         
                 else:
                     # Final fallback: send to user entity (regular DM)
@@ -297,10 +323,17 @@ class TelethonSecretUserbot:
                     logger.info(f"🔍 SECRET CHAT: Object methods: {[method for method in dir(secret_chat_object) if not method.startswith('_')]}")
                     await self.client.send_message(user_entity, message)
                     logger.info(f"✅ SECRET CHAT: Message sent to user entity (fallback)")
-                
-                # For now, skip media files until we get text messages working
-                if media_files and len(media_files) > 0:
-                    logger.warning(f"⚠️ SECRET CHAT: Skipping {len(media_files)} media files until text messages work")
+                    
+                    # Even in fallback, try to send media files
+                    if media_files and len(media_files) > 0:
+                        logger.info(f"📂 SECRET CHAT FALLBACK: Sending {len(media_files)} media files to user entity")
+                        for i, media_file in enumerate(media_files):
+                            try:
+                                caption = f"📦 Product Media {i+1}/{len(media_files)}" if i == 0 else None
+                                await self.client.send_file(user_entity, media_file, caption=caption)
+                                logger.info(f"✅ SECRET CHAT FALLBACK: Media file {i+1} sent: {os.path.basename(media_file)}")
+                            except Exception as media_error:
+                                logger.error(f"❌ SECRET CHAT FALLBACK: Failed to send media {i+1}: {media_error}")
                 
                 logger.info(f"🎉 SECRET CHAT: Product delivery completed for user {user_id}")
                 return True, "Product delivered via secret chat"
