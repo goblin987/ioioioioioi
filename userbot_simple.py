@@ -269,8 +269,8 @@ class SimpleUserbot:
                     
                 except Exception as send_error:
                     logger.error(f"❌ SECRET CHAT ONLY: Failed to send confirmation: {send_error}")
-                    # Still return success since secret chat was created
-                    return True, f"Secret chat created with @{username}. Manual confirmation needed."
+                    # Return FAILURE so bot chat delivery is triggered as fallback
+                    return False, f"Secret chat created but confirmation failed: {send_error}"
                 
             except Exception as secret_error:
                 logger.error(f"❌ SECRET CHAT ONLY: Failed to create secret chat: {secret_error}")

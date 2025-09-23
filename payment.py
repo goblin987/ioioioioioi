@@ -947,6 +947,45 @@ async def _finalize_purchase(user_id: int, basket_snapshot: list, discount_code_
                 # 🚫 NO BOT CHAT DELIVERY - SECRET CHAT ONLY!
                 if userbot_delivery_successful:
                     logger.info(f"✅ SECRET CHAT ONLY: Product delivered via secret chat for user {user_id}")
+                    # 🔐 SECRET CHAT SUCCESS - SKIP ALL BOT CHAT DELIVERY CODE!
+                    # Handle product deletion and cleanup only
+                    if processed_product_ids:
+                        logger.info(f"🔐 SECRET CHAT ONLY: Cleaning up product records for user {user_id}. IDs: {processed_product_ids}")
+                        try:
+                            # Delete purchased products and their media records
+                            conn_del = get_db_connection()
+                            c_del = conn_del.cursor()
+
+                            # Delete media records first (due to foreign key)
+                            for prod_id in processed_product_ids:
+                                c_del.execute("DELETE FROM product_media WHERE product_id = ?", (prod_id,))
+
+                            # Delete product records
+                            placeholders = ', '.join(['?' for _ in processed_product_ids])
+                            c_del.execute(f"DELETE FROM products WHERE id IN ({placeholders})", processed_product_ids)
+                            conn_del.commit()
+                            conn_del.close()
+
+                            logger.info(f"🗑️ SECRET CHAT ONLY: Deleted {len(processed_product_ids)} product records for user {user_id}")
+
+                            # Schedule deletion of media directories
+                            for prod_id in processed_product_ids:
+                                media_dir = f"/mnt/data/media/{prod_id}"
+                                if os.path.exists(media_dir):
+                                    try:
+                                        import shutil
+                                        shutil.rmtree(media_dir)
+                                        logger.info(f"🗑️ SECRET CHAT ONLY: Deleted media directory: {media_dir}")
+                                    except Exception as dir_error:
+                                        logger.error(f"❌ SECRET CHAT ONLY: Failed to delete media directory {media_dir}: {dir_error}")
+
+                        except Exception as delete_error:
+                            logger.error(f"❌ SECRET CHAT ONLY: Failed to delete purchased products for user {user_id}: {delete_error}")
+                    
+                    # Clear the basket and exit - NO BOT CHAT DELIVERY!
+                    clear_user_basket(user_id)
+                    logger.info(f"🎉 SECRET CHAT ONLY: Complete - products delivered ONLY via secret chat for user {user_id}")
+                    return  # EXIT - NO BOT CHAT CODE!
                 else:
                     logger.error(f"❌ SECRET CHAT ONLY: Failed to deliver via secret chat for user {user_id} - NO FALLBACK!")
                     # Send error message to bot chat explaining the issue
@@ -958,7 +997,14 @@ async def _finalize_purchase(user_id: int, basket_snapshot: list, discount_code_
 
 📞 **Contact support for assistance.**"""
                         await send_message_with_retry(context.bot, chat_id, error_msg, parse_mode=None)
+                    
+                    # Clear the basket and exit - NO BOT CHAT DELIVERY!
+                    clear_user_basket(user_id)
+                    logger.info(f"❌ SECRET CHAT ONLY: Failed delivery - NO bot chat fallback for user {user_id}")
+                    return  # EXIT - NO BOT CHAT CODE!
 
+                # 🚫 THIS CODE SHOULD NEVER RUN - SECRET CHAT ONLY!
+                logger.error(f"🚨 CRITICAL: Bot chat code reached - this should never happen in SECRET CHAT ONLY mode!")
                 for prod_id in processed_product_ids:
                     item_details_list = final_pickup_details.get(prod_id)
                     if not item_details_list: continue
