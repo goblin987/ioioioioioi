@@ -156,11 +156,27 @@ async def handle_userbot_verification_code_message(update: Update, context: Cont
                 logger.info(f"🔍 TELETHON AUTH: Session save result - length: {len(session_string) if session_string else 0}")
                 logger.info(f"🔍 TELETHON AUTH: Session save result - type: {type(session_string)}")
                 
-                # If session.save() returns None, try alternative method
+                # If session.save() returns None, try alternative methods
                 if not session_string:
-                    logger.warning("⚠️ TELETHON AUTH: session.save() returned None, trying export_session_string()")
-                    session_string = await client.export_session_string()
-                    logger.info(f"🔍 TELETHON AUTH: export_session_string result - length: {len(session_string) if session_string else 0}")
+                    logger.warning("⚠️ TELETHON AUTH: session.save() returned None, trying alternative methods")
+                    
+                    # Try to get session string from StringSession
+                    try:
+                        from telethon.sessions import StringSession
+                        if isinstance(client.session, StringSession):
+                            session_string = client.session.save()
+                            logger.info(f"🔍 TELETHON AUTH: StringSession.save() result - length: {len(session_string) if session_string else 0}")
+                        else:
+                            logger.warning("⚠️ TELETHON AUTH: Client session is not StringSession, creating new one")
+                            # Create a new StringSession and save current session data to it
+                            string_session = StringSession()
+                            string_session.set_dc(client.session.dc_id, client.session.server_address, client.session.port)
+                            string_session.auth_key = client.session.auth_key
+                            session_string = string_session.save()
+                            logger.info(f"🔍 TELETHON AUTH: New StringSession result - length: {len(session_string) if session_string else 0}")
+                    except Exception as alt_error:
+                        logger.error(f"❌ TELETHON AUTH: Alternative session export error: {alt_error}")
+                        session_string = None
                 
             except Exception as session_export_error:
                 logger.error(f"❌ TELETHON AUTH: Session export error: {session_export_error}")
@@ -268,11 +284,27 @@ async def handle_userbot_2fa_password_message(update: Update, context: ContextTy
                 logger.info(f"🔍 TELETHON AUTH 2FA: Session save result - length: {len(session_string) if session_string else 0}")
                 logger.info(f"🔍 TELETHON AUTH 2FA: Session save result - type: {type(session_string)}")
                 
-                # If session.save() returns None, try alternative method
+                # If session.save() returns None, try alternative methods
                 if not session_string:
-                    logger.warning("⚠️ TELETHON AUTH 2FA: session.save() returned None, trying export_session_string()")
-                    session_string = await client.export_session_string()
-                    logger.info(f"🔍 TELETHON AUTH 2FA: export_session_string result - length: {len(session_string) if session_string else 0}")
+                    logger.warning("⚠️ TELETHON AUTH 2FA: session.save() returned None, trying alternative methods")
+                    
+                    # Try to get session string from StringSession
+                    try:
+                        from telethon.sessions import StringSession
+                        if isinstance(client.session, StringSession):
+                            session_string = client.session.save()
+                            logger.info(f"🔍 TELETHON AUTH 2FA: StringSession.save() result - length: {len(session_string) if session_string else 0}")
+                        else:
+                            logger.warning("⚠️ TELETHON AUTH 2FA: Client session is not StringSession, creating new one")
+                            # Create a new StringSession and save current session data to it
+                            string_session = StringSession()
+                            string_session.set_dc(client.session.dc_id, client.session.server_address, client.session.port)
+                            string_session.auth_key = client.session.auth_key
+                            session_string = string_session.save()
+                            logger.info(f"🔍 TELETHON AUTH 2FA: New StringSession result - length: {len(session_string) if session_string else 0}")
+                    except Exception as alt_error:
+                        logger.error(f"❌ TELETHON AUTH 2FA: Alternative session export error: {alt_error}")
+                        session_string = None
                 
             except Exception as session_export_error:
                 logger.error(f"❌ TELETHON AUTH 2FA: Session export error: {session_export_error}")
