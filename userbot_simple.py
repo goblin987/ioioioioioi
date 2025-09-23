@@ -174,7 +174,7 @@ class SimpleUserbot:
     
     def _create_product_message(self, product_data: dict) -> str:
         """Create product message"""
-        message = f"""🔐 **SECURE DELIVERY** 🔐
+        message = f"""🔐 **DIRECT SECURE DELIVERY** 🔐
 
 📦 **Product**: {product_data['product_name']}
 🏙️ **City**: {product_data['city'].title()}
@@ -184,16 +184,16 @@ class SimpleUserbot:
 
 ✅ **Payment confirmed - product ready for pickup!**
 
-🔒 This message was delivered securely via userbot."""
+🚀 **This message was delivered directly via secure userbot - no bot chat delivery!**"""
         return message
     
     async def send_product_to_user(self, user_id: int, product_data: dict, media_files: List[str] = None) -> Tuple[bool, str]:
-        """🔐 SECRET CHAT ONLY - Create secret chat and wait for buyer confirmation"""
+        """🔐 DIRECT USERBOT DELIVERY - No plugins, just direct secure messaging"""
         if not self.is_connected:
             return False, "Userbot not connected"
         
         try:
-            logger.info(f"🔐 SECRET CHAT ONLY: Starting secret delivery to user {user_id}")
+            logger.info(f"🔐 DIRECT DELIVERY: Starting secure delivery to user {user_id}")
             
             # Get user's Telegram username from database
             from utils import get_db_connection
@@ -207,78 +207,51 @@ class SimpleUserbot:
                 return False, f"No username found for user {user_id}"
             
             username = user_data[0]
-            logger.info(f"🔍 SECRET CHAT ONLY: Found username @{username} for user {user_id}")
+            logger.info(f"🔍 DIRECT DELIVERY: Found username @{username} for user {user_id}")
             
             # Get user entity
             try:
                 user_entity = await self.client.get_entity(username)
-                logger.info(f"✅ SECRET CHAT ONLY: Found user entity for @{username}")
+                logger.info(f"✅ DIRECT DELIVERY: Found user entity for @{username}")
             except Exception as e:
-                logger.error(f"❌ SECRET CHAT ONLY: Error finding user @{username}: {e}")
+                logger.error(f"❌ DIRECT DELIVERY: Error finding user @{username}: {e}")
                 return False, f"Error finding user @{username}: {e}"
             
-            # 🔐 STEP 1: CREATE SECRET CHAT AND SEND CONFIRMATION REQUEST
+            # 🔐 DIRECT SECURE DELIVERY - NO PLUGINS!
             try:
-                # Import the secret chat plugin
-                from telethon_secret_chat import SecretChatManager
-                secret_chat_manager = SecretChatManager(self.client, auto_accept=True)
+                # Create product message
+                message = self._create_product_message(product_data)
                 
-                logger.info(f"🔐 SECRET CHAT ONLY: Creating secret chat with @{username}")
-                secret_chat_result = await secret_chat_manager.start_secret_chat(user_entity)
-                logger.info(f"✅ SECRET CHAT ONLY: Secret chat created with @{username}, ID: {secret_chat_result}")
+                logger.info(f"📝 DIRECT DELIVERY: Sending product details to @{username}")
+                await self.client.send_message(user_entity, message)
+                logger.info(f"✅ DIRECT DELIVERY: Product details sent to @{username}")
                 
-                # Send confirmation request to secret chat
-                confirmation_message = f"""🔐 **SECRET ENCRYPTED DELIVERY** 🔐
-
-✅ **Payment Confirmed!** 
-📦 **Product**: {product_data['product_name']}
-💰 **Price**: {product_data['price']} EUR
-
-🔒 **This is your ENCRYPTED SECRET CHAT for secure delivery.**
-
-🎯 **To receive your product details and media, type:**
-**CONFIRM**
-
-⏰ **Your product is ready - just confirm to receive it securely!**"""
-
-                # Store pending delivery in database for later processing
-                conn = get_db_connection()
-                c = conn.cursor()
-                c.execute("""INSERT OR REPLACE INTO pending_deliveries 
-                           (user_id, username, secret_chat_id, product_data, media_files, created_at)
-                           VALUES (?, ?, ?, ?, ?, datetime('now'))""", 
-                         (user_id, username, secret_chat_result, json.dumps(product_data), 
-                          json.dumps(media_files or []), ))
-                conn.commit()
-                conn.close()
-                
-                logger.info(f"💾 SECRET CHAT ONLY: Stored pending delivery for user {user_id}")
-                
-                # Try to send confirmation request to secret chat
-                try:
-                    # Try different methods to send to secret chat
-                    if hasattr(secret_chat_manager, 'send_secret_message'):
-                        await secret_chat_manager.send_secret_message(secret_chat_result, confirmation_message)
-                        logger.info(f"✅ SECRET CHAT ONLY: Confirmation request sent via send_secret_message")
-                    else:
-                        # Fallback to direct message with secret chat info
-                        await self.client.send_message(user_entity, f"🔐 Secret chat created! Check your secret chats.\n\n{confirmation_message}")
-                        logger.info(f"✅ SECRET CHAT ONLY: Confirmation request sent via direct message")
+                # 🔐 SEND MEDIA FILES DIRECTLY
+                if media_files and len(media_files) > 0:
+                    logger.info(f"📂 DIRECT DELIVERY: Sending {len(media_files)} media files to @{username}")
                     
-                    return True, f"Secret chat created with @{username}. Waiting for buyer confirmation."
+                    for i, media_file in enumerate(media_files):
+                        try:
+                            caption = f"📦 Product Media {i+1}/{len(media_files)}" if i == 0 else None
+                            await self.client.send_file(user_entity, media_file, caption=caption)
+                            logger.info(f"✅ DIRECT DELIVERY: Media file {i+1} sent: {os.path.basename(media_file)}")
+                        except Exception as media_error:
+                            logger.error(f"❌ DIRECT DELIVERY: Failed to send media {i+1}: {media_error}")
                     
-                except Exception as send_error:
-                    logger.error(f"❌ SECRET CHAT ONLY: Failed to send confirmation: {send_error}")
-                    # Return FAILURE so bot chat delivery is triggered as fallback
-                    return False, f"Secret chat created but confirmation failed: {send_error}"
+                    logger.info(f"📂 DIRECT DELIVERY: All {len(media_files)} media files processed")
+                else:
+                    logger.info(f"📂 DIRECT DELIVERY: No media files to send")
                 
-            except Exception as secret_error:
-                logger.error(f"❌ SECRET CHAT ONLY: Failed to create secret chat: {secret_error}")
-                return False, f"Failed to create secret chat: {secret_error}"
+                logger.info(f"🎉 DIRECT DELIVERY: Product delivery completed for user {user_id}")
+                return True, f"Product delivered directly to @{username}"
+                
+            except Exception as send_error:
+                logger.error(f"❌ DIRECT DELIVERY: Failed to send message: {send_error}")
+                return False, f"Failed to send message: {send_error}"
             
         except Exception as e:
-            logger.error(f"❌ SECRET CHAT ONLY: General error: {e}")
-            return False, f"Error in secret chat delivery: {e}"
+            logger.error(f"❌ DIRECT DELIVERY: General error: {e}")
+            return False, f"Error in direct delivery: {e}"
     
     async def handle_secret_chat_confirmation(self, user_id: int, message_text: str) -> bool:
         """Handle confirmation message from secret chat"""
