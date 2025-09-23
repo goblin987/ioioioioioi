@@ -13,7 +13,7 @@ from telethon import TelegramClient
 from telethon.tl.types import User
 from telethon.errors import SessionPasswordNeededError, PhoneCodeInvalidError
 # 🔐 REAL SECRET CHATS using telethon-secret-chat plugin
-from telethon_secret_chat import SecretChatManager
+# from telethon_secret_chat import SecretChatManager  # REMOVED - Plugin has known issues with message delivery
 
 logger = logging.getLogger(__name__)
 
@@ -127,8 +127,8 @@ class TelethonSecretUserbot:
                 return False, "Session expired - please re-authenticate"
             
             # 🔐 INITIALIZE SECRET CHAT MANAGER
-            self.secret_chat_manager = SecretChatManager(self.client, auto_accept=True)
-            logger.info("🔐 TELETHON SECRET: SecretChatManager initialized with auto_accept=True")
+            # 🔐 SIMPLE APPROACH: Use secure direct messages instead of buggy secret chat plugin
+            logger.info("🔐 TELETHON SECURE: Using secure direct message delivery (no plugin)")
             
             # Get user info
             me = await self.client.get_me()

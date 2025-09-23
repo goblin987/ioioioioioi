@@ -569,7 +569,7 @@ async def post_shutdown(application: Application) -> None:
     
     # Disconnect Telethon userbot if connected
     try:
-        from userbot_telethon import telethon_userbot as userbot
+        from userbot_simple import simple_userbot as userbot
         if userbot.is_connected:
             logger.info("🤖 TELETHON USERBOT: Disconnecting userbot...")
             await userbot.disconnect()
@@ -1161,7 +1161,7 @@ def main() -> None:
     # Userbot initialization - connect if credentials exist
     logger.info("ℹ️ USERBOT: Checking userbot configuration...")
     try:
-        from userbot_telethon import telethon_userbot as userbot
+        from userbot_simple import simple_userbot as userbot
         if userbot.has_session and userbot.session_string:
             logger.info("🔄 USERBOT: Found existing session, attempting to connect...")
             # We'll connect this after the main application is initialized
@@ -1217,7 +1217,7 @@ def main() -> None:
         
         # Connect userbot if session exists
         try:
-            from userbot_telethon import telethon_userbot as userbot
+            from userbot_simple import simple_userbot as userbot
             if userbot.has_session and userbot.session_string:
                 logger.info("🔄 USERBOT: Connecting userbot with existing session...")
                 connect_success, connect_message = await userbot.connect()
