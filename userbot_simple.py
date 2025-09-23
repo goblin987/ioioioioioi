@@ -297,11 +297,15 @@ class SimpleUserbot:
                                         thumb_data = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\tpHYs\x00\x00\x0b\x13\x00\x00\x0b\x13\x01\x00\x9a\x9c\x18\x00\x00\x00\nIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x01\x00\x18\xdd\x8d\xb4\x00\x00\x00\x00IEND\xaeB`\x82'
                                         
                                         # Use REALISTIC video parameters based on file size
-                                        if file_size > 2000000:  # Large video (>2MB)
-                                            duration = 10  # 10 seconds
+                                        if file_size > 3000000:  # Very large video (>3MB)
+                                            duration = 15  # 15 seconds
                                             w, h = 1280, 720  # HD
                                             thumb_w, thumb_h = 320, 180
-                                        else:  # Smaller video
+                                        elif file_size > 1000000:  # Medium video (>1MB)
+                                            duration = 8  # 8 seconds (closer to your 7s original)
+                                            w, h = 720, 480  # Better quality
+                                            thumb_w, thumb_h = 240, 160
+                                        else:  # Small video
                                             duration = 5  # 5 seconds  
                                             w, h = 640, 480  # SD
                                             thumb_w, thumb_h = 160, 120
