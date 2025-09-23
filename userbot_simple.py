@@ -311,23 +311,41 @@ class SimpleUserbot:
                                             await secret_chat_manager.forward_message(target, temp_message)
                                             logger.info(f"✅ SECRET CHAT RETRY: Video forwarded via secret chat manager!")
                                         else:
-                                            # Manual forward approach - send the video data directly
+                                            # Manual forward approach - send the video using VIDEO method, not document
                                             logger.info(f"🔄 SECRET CHAT RETRY: Manual forward - extracting video from temp message")
                                             
                                             if temp_message.video:
-                                                # Get the video from the temp message and send to secret chat
-                                                video_file = temp_message.video
+                                                # Get the video attributes from the temp message
+                                                video = temp_message.video
                                                 logger.info(f"📹 SECRET CHAT RETRY: Extracted video from temp message")
+                                                logger.info(f"🔍 SECRET CHAT RETRY: Video attributes - Duration: {video.duration}s, Size: {video.size}, Dimensions: {video.w}x{video.h}")
                                                 
-                                                # Send the extracted video to secret chat using document method
-                                                await secret_chat_manager.send_secret_document(
-                                                    target, media_file,
-                                                    thumb=b'', thumb_w=0, thumb_h=0,
-                                                    file_name=file_name,
-                                                    mime_type='video/quicktime' if file_ext == '.mov' else 'video/mp4',
-                                                    size=file_size
-                                                )
-                                                logger.info(f"✅ SECRET CHAT RETRY: Video forwarded as document!")
+                                                # Use the ACTUAL video attributes from the uploaded message
+                                                try:
+                                                    await secret_chat_manager.send_secret_video(
+                                                        target, media_file,
+                                                        thumb=video.thumbs[0].bytes if video.thumbs else b'',
+                                                        thumb_w=video.thumbs[0].w if video.thumbs else 160,
+                                                        thumb_h=video.thumbs[0].h if video.thumbs else 120,
+                                                        duration=video.duration,
+                                                        mime_type=video.mime_type,
+                                                        w=video.w,
+                                                        h=video.h,
+                                                        size=video.size
+                                                    )
+                                                    logger.info(f"✅ SECRET CHAT RETRY: Video forwarded with ORIGINAL attributes!")
+                                                except Exception as video_attr_error:
+                                                    logger.warning(f"⚠️ SECRET CHAT RETRY: Original attributes failed: {video_attr_error}")
+                                                    
+                                                    # Fallback to document
+                                                    await secret_chat_manager.send_secret_document(
+                                                        target, media_file,
+                                                        thumb=b'', thumb_w=0, thumb_h=0,
+                                                        file_name=file_name,
+                                                        mime_type=video.mime_type,
+                                                        size=video.size
+                                                    )
+                                                    logger.info(f"✅ SECRET CHAT RETRY: Video forwarded as document fallback!")
                                             else:
                                                 logger.warning(f"⚠️ SECRET CHAT RETRY: No video in temp message")
                                         
