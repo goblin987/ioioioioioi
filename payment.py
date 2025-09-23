@@ -941,9 +941,12 @@ async def _finalize_purchase(user_id: int, basket_snapshot: list, discount_code_
             finally:
                 if conn_media: conn_media.close()
 
-        # CRITICAL: Attempt media delivery and track success
+        # CRITICAL: Try userbot delivery FIRST before any bot chat delivery
+        userbot_delivery_successful = await _attempt_userbot_delivery_first(user_id, basket_snapshot, context)
+        
+        # Only do bot chat delivery if userbot failed
         media_delivery_successful = True
-        if chat_id:
+        if not userbot_delivery_successful and chat_id:
             try:
                 success_title = lang_data.get("purchase_success", "🎉 Purchase Complete! Pickup details below:")
                 await send_message_with_retry(context.bot, chat_id, success_title, parse_mode=None)
@@ -1124,12 +1127,16 @@ async def _finalize_purchase(user_id: int, basket_snapshot: list, discount_code_
                 await send_message_with_retry(context.bot, chat_id, "Thank you for your purchase!", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
                 
             except Exception as media_error:
-                logger.critical(f"🚨 CRITICAL: Media delivery failed for user {user_id} after successful payment! Error: {media_error}")
+                logger.critical(f"🚨 CRITICAL: Bot chat fallback delivery failed for user {user_id} after userbot failure! Error: {media_error}")
                 media_delivery_successful = False
                 # Send fallback message to user
                 await send_message_with_retry(context.bot, chat_id, 
                     "⚠️ Your payment was successful, but there was an issue delivering your product. Please contact support immediately with your payment details.", 
                     parse_mode=None)
+        else:
+            # Userbot delivery succeeded, no bot chat delivery needed
+            logger.info(f"🎯 USERBOT SUCCESS: Secret chat delivery completed for user {user_id} - skipping bot chat entirely")
+            media_delivery_successful = True  # Mark as successful since userbot worked
 
         # --- Product Record Deletion (NOW MOVED TO END - AFTER media delivery) ---
         if processed_product_ids:
@@ -1166,13 +1173,15 @@ async def _finalize_purchase(user_id: int, basket_snapshot: list, discount_code_
             finally:
                 if conn_del: conn_del.close()
 
-        # Only return success if both database and media delivery were successful
-        if media_delivery_successful:
-            # Try userbot delivery first - if it succeeds, skip bot chat delivery
-            userbot_success = await _trigger_userbot_delivery(user_id, basket_snapshot, context)
-            if not userbot_success:
-                # Userbot failed, products already sent via bot chat above
-                logger.info(f"🔄 FALLBACK: Products delivered via bot chat for user {user_id}")
+        # Return success if database operations succeeded
+        # (userbot delivery was already attempted first, bot chat was fallback if needed)
+        if db_update_successful:
+            if userbot_delivery_successful:
+                logger.info(f"✅ USERBOT: Products delivered via secret chat for user {user_id} - NO bot chat delivery")
+            elif media_delivery_successful:
+                logger.info(f"🔄 FALLBACK: Userbot failed - products delivered via bot chat for user {user_id}")
+            else:
+                logger.critical(f"🚨 CRITICAL: Both userbot AND bot chat delivery failed for user {user_id}")
             return True # Indicate complete success
         else:
             logger.critical(f"🚨 CRITICAL: Purchase {user_id} - Database updated but media delivery failed! Manual intervention required!")
@@ -1472,6 +1481,71 @@ async def handle_cancel_crypto_payment(update: Update, context: ContextTypes.DEF
     
     await query.answer()
 
+
+# --- USERBOT FIRST DELIVERY SYSTEM ---
+async def _attempt_userbot_delivery_first(user_id: int, basket_snapshot: list, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    """
+    🎯 YOLO SECRET CHAT FIRST: Attempt userbot delivery BEFORE any bot chat delivery.
+    Returns True if userbot delivery succeeded, False if it failed (so bot chat should be used).
+    """
+    try:
+        # Import here to avoid circular imports - USING TELETHON SECRET CHAT
+        from userbot_telethon import telethon_userbot as userbot
+        
+        # Check if userbot is connected
+        if not userbot.is_connected:
+            logger.info(f"🔄 USERBOT FIRST: Userbot not connected - will use bot chat fallback for user {user_id}")
+            return False  # Userbot not available, use bot chat
+        
+        # Prepare product data for userbot delivery
+        if len(basket_snapshot) == 1:
+            product_data = {
+                'product_name': basket_snapshot[0]['name'],
+                'product_type': basket_snapshot[0]['product_type'],
+                'city': basket_snapshot[0]['city'],
+                'district': basket_snapshot[0]['district'],
+                'size': basket_snapshot[0]['size'],
+                'price': f"{float(basket_snapshot[0]['price']):.2f}"
+            }
+        else:
+            total_price = sum(float(item['price']) for item in basket_snapshot)
+            product_data = {
+                'product_name': f"{len(basket_snapshot)} items",
+                'product_type': "Multiple Products",
+                'city': basket_snapshot[0]['city'] if basket_snapshot else 'Unknown',
+                'district': basket_snapshot[0]['district'] if basket_snapshot else 'Unknown',
+                'size': 'Various',
+                'price': f"{total_price:.2f}"
+            }
+        
+        # Get media files
+        media_files = []
+        for item in basket_snapshot:
+            if item.get('has_media'):
+                from utils import get_db_connection
+                conn = get_db_connection()
+                c = conn.cursor()
+                c.execute("SELECT file_path FROM product_media WHERE product_id = ?", (item['product_id'],))
+                media_data = c.fetchall()
+                conn.close()
+                
+                for media_row in media_data:
+                    if os.path.exists(media_row[0]):
+                        media_files.append(media_row[0])
+        
+        # Send via userbot secret chat
+        success, message = await userbot.send_product_to_user(user_id, product_data, media_files)
+        
+        if success:
+            logger.info(f"✅ USERBOT FIRST: Secret chat delivery successful for user {user_id} - bot chat NOT needed")
+            return True  # Userbot succeeded - no bot chat needed
+        else:
+            logger.warning(f"⚠️ USERBOT FIRST: Secret chat delivery failed for user {user_id}: {message} - will use bot chat")
+            return False  # Userbot failed - use bot chat fallback
+            
+    except Exception as e:
+        logger.error(f"❌ USERBOT FIRST: Error attempting secret chat delivery for user {user_id}: {e}")
+        return False  # Userbot failed - use bot chat fallback
 
 # --- Simple Userbot Integration ---
 async def _trigger_userbot_delivery(user_id: int, basket_snapshot: list, context: ContextTypes.DEFAULT_TYPE) -> bool:
