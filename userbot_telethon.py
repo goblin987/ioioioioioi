@@ -280,19 +280,50 @@ class TelethonSecretUserbot:
                     # It's an ID (positive or negative), try to use it with the manager
                     logger.info(f"🔢 SECRET CHAT: Object is an ID ({secret_chat_object}), trying manager methods")
                     
+                    # 🔍 DEBUG: Check what methods the SecretChatManager actually has
+                    manager_methods = [method for method in dir(self.secret_chat_manager) if not method.startswith('_') and callable(getattr(self.secret_chat_manager, method))]
+                    logger.info(f"🔍 SECRET CHAT: Available manager methods: {manager_methods}")
+                    
+                    # Try various method names that might exist
+                    method_tried = False
+                    
                     if hasattr(self.secret_chat_manager, 'send_message_to_secret_chat'):
                         logger.info(f"🔐 SECRET CHAT: Trying send_message_to_secret_chat with ID {secret_chat_object}")
                         await self.secret_chat_manager.send_message_to_secret_chat(secret_chat_object, message)
                         logger.info(f"✅ SECRET CHAT: Message sent via manager send_message_to_secret_chat")
+                        method_tried = True
                     elif hasattr(self.secret_chat_manager, 'send_message'):
                         logger.info(f"🔐 SECRET CHAT: Trying send_message with ID {secret_chat_object}")
                         await self.secret_chat_manager.send_message(secret_chat_object, message)
                         logger.info(f"✅ SECRET CHAT: Message sent via manager send_message")
-                    else:
-                        # Try using the secret chat ID directly with Telethon client
-                        logger.info(f"🔐 SECRET CHAT: Trying direct client.send_message to secret chat ID {secret_chat_object}")
-                        await self.client.send_message(secret_chat_object, message)
-                        logger.info(f"✅ SECRET CHAT: Message sent directly to secret chat ID")
+                        method_tried = True
+                    elif hasattr(self.secret_chat_manager, 'send_text'):
+                        logger.info(f"🔐 SECRET CHAT: Trying send_text with ID {secret_chat_object}")
+                        await self.secret_chat_manager.send_text(secret_chat_object, message)
+                        logger.info(f"✅ SECRET CHAT: Message sent via manager send_text")
+                        method_tried = True
+                    elif hasattr(self.secret_chat_manager, 'send'):
+                        logger.info(f"🔐 SECRET CHAT: Trying send with ID {secret_chat_object}")
+                        await self.secret_chat_manager.send(secret_chat_object, message)
+                        logger.info(f"✅ SECRET CHAT: Message sent via manager send")
+                        method_tried = True
+                    
+                    if not method_tried:
+                        # Try using the secret chat ID with InputEncryptedChat
+                        logger.info(f"🔐 SECRET CHAT: No manager methods found, trying InputEncryptedChat approach")
+                        try:
+                            from telethon.tl.types import InputEncryptedChat
+                            # Secret chat ID needs to be converted to InputEncryptedChat
+                            # But we need access_hash - this approach might not work
+                            logger.warning(f"⚠️ SECRET CHAT: InputEncryptedChat needs access_hash, trying direct ID instead")
+                            await self.client.send_message(secret_chat_object, message)
+                            logger.info(f"✅ SECRET CHAT: Message sent directly to secret chat ID")
+                        except Exception as input_error:
+                            logger.error(f"❌ SECRET CHAT: InputEncryptedChat approach failed: {input_error}")
+                            # Final fallback - send to original user entity
+                            logger.warning(f"⚠️ SECRET CHAT: All secret chat methods failed, using user entity fallback")
+                            await self.client.send_message(user_entity, message)
+                            logger.info(f"✅ SECRET CHAT: Message sent to user entity (final fallback)")
                     
                     # 🔐 NOW SEND MEDIA FILES TO SECRET CHAT
                     if media_files and len(media_files) > 0:
