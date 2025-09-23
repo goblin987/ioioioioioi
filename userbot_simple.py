@@ -25,47 +25,117 @@ class SimpleUserbot:
         self.is_connected = False
         self.client = None
         
+        # Multi-userbot support
+        self.userbots = []  # List of userbot configurations
+        self.current_userbot_index = 0
+        
         # Load existing configuration
         self._load_configuration()
     
     def _load_configuration(self):
-        """Load userbot configuration from persistent storage"""
+        """Load userbot configurations from persistent storage"""
         try:
             config_file = '/mnt/data/userbot_config.json'
             if os.path.exists(config_file):
                 with open(config_file, 'r') as f:
                     config = json.load(f)
-                    self.api_id = config.get('api_id')
-                    self.api_hash = config.get('api_hash') 
-                    self.phone_number = config.get('phone_number')
-                    self.session_string = config.get('session_string')
                     
-                    if self.session_string:
-                        self.has_session = True
-                        logger.info(f"✅ SIMPLE: Loaded configuration for {self.phone_number}")
+                    # Check if it's multi-userbot format
+                    if 'userbots' in config:
+                        self.userbots = config['userbots']
+                        logger.info(f"✅ MULTI-USERBOT: Loaded {len(self.userbots)} userbot configurations")
+                        
+                        # Set primary userbot as current
+                        if self.userbots:
+                            primary = self.userbots[0]
+                            self.api_id = primary.get('api_id')
+                            self.api_hash = primary.get('api_hash')
+                            self.phone_number = primary.get('phone_number')
+                            self.session_string = primary.get('session_string')
+                            
+                            if self.session_string:
+                                self.has_session = True
+                                logger.info(f"✅ MULTI-USERBOT: Primary userbot: {self.phone_number}")
                     else:
-                        logger.info(f"ℹ️ SIMPLE: Configuration loaded but no session string")
+                        # Legacy single userbot format - convert to multi-userbot
+                        legacy_userbot = {
+                            'api_id': config.get('api_id'),
+                            'api_hash': config.get('api_hash'),
+                            'phone_number': config.get('phone_number'),
+                            'session_string': config.get('session_string'),
+                            'rate_limited_until': 0
+                        }
+                        self.userbots = [legacy_userbot]
+                        
+                        # Set legacy as current
+                        self.api_id = legacy_userbot['api_id']
+                        self.api_hash = legacy_userbot['api_hash']
+                        self.phone_number = legacy_userbot['phone_number']
+                        self.session_string = legacy_userbot['session_string']
+                        
+                        if self.session_string:
+                            self.has_session = True
+                            logger.info(f"✅ SIMPLE: Converted legacy config for {self.phone_number}")
+                        
+                        # Save in new format
+                        self._save_configuration()
             else:
                 logger.info(f"ℹ️ SIMPLE: No configuration file found")
         except Exception as e:
             logger.error(f"❌ SIMPLE: Error loading configuration: {e}")
     
     def _save_configuration(self):
-        """Save userbot configuration to persistent storage"""
+        """Save userbot configurations to persistent storage"""
         try:
             config_file = '/mnt/data/userbot_config.json'
             config = {
-                'api_id': self.api_id,
-                'api_hash': self.api_hash,
-                'phone_number': self.phone_number,
-                'session_string': self.session_string
+                'userbots': self.userbots,
+                'current_userbot_index': self.current_userbot_index
             }
             
             with open(config_file, 'w') as f:
-                json.dump(config, f)
-            logger.info(f"✅ SIMPLE: Configuration saved")
+                json.dump(config, f, indent=2)
+            logger.info(f"✅ MULTI-USERBOT: Configuration saved ({len(self.userbots)} userbots)")
         except Exception as e:
-            logger.error(f"❌ SIMPLE: Error saving configuration: {e}")
+            logger.error(f"❌ MULTI-USERBOT: Error saving configuration: {e}")
+    
+    def add_userbot(self, api_id: int, api_hash: str, phone_number: str, session_string: str = None):
+        """Add a new userbot to the rotation"""
+        new_userbot = {
+            'api_id': api_id,
+            'api_hash': api_hash,
+            'phone_number': phone_number,
+            'session_string': session_string,
+            'rate_limited_until': 0
+        }
+        
+        self.userbots.append(new_userbot)
+        self._save_configuration()
+        logger.info(f"✅ MULTI-USERBOT: Added userbot {phone_number} (Total: {len(self.userbots)})")
+        return True, f"Userbot {phone_number} added successfully"
+    
+    def get_available_userbot(self):
+        """Get next available userbot (not rate limited)"""
+        import time
+        current_time = time.time()
+        
+        # Check all userbots for availability
+        for i, userbot in enumerate(self.userbots):
+            if userbot.get('rate_limited_until', 0) < current_time:
+                if userbot.get('session_string'):
+                    logger.info(f"✅ MULTI-USERBOT: Using userbot {i+1}: {userbot['phone_number']}")
+                    return i, userbot
+        
+        logger.warning(f"⚠️ MULTI-USERBOT: All {len(self.userbots)} userbots are rate limited")
+        return None, None
+    
+    def mark_userbot_rate_limited(self, userbot_index: int, wait_seconds: int):
+        """Mark a userbot as rate limited"""
+        import time
+        if userbot_index < len(self.userbots):
+            self.userbots[userbot_index]['rate_limited_until'] = time.time() + wait_seconds
+            self._save_configuration()
+            logger.warning(f"⚠️ MULTI-USERBOT: Marked userbot {userbot_index+1} as rate limited for {wait_seconds}s")
     
     def set_credentials(self, api_id: int, api_hash: str, phone_number: str, session_string: str = None):
         """Set userbot credentials"""
@@ -78,6 +148,32 @@ class SimpleUserbot:
         
         self._save_configuration()
         logger.info(f"✅ SIMPLE: Credentials set for {phone_number}")
+    
+    async def _switch_to_userbot(self, userbot_index: int):
+        """Switch to a different userbot"""
+        if userbot_index >= len(self.userbots):
+            return False
+        
+        # Disconnect current userbot
+        if self.client and self.is_connected:
+            await self.disconnect()
+        
+        # Switch to new userbot
+        userbot_config = self.userbots[userbot_index]
+        self.api_id = userbot_config['api_id']
+        self.api_hash = userbot_config['api_hash']
+        self.phone_number = userbot_config['phone_number']
+        self.session_string = userbot_config['session_string']
+        self.current_userbot_index = userbot_index
+        
+        # Connect new userbot
+        if self.session_string:
+            self.has_session = True
+            success, message = await self.connect()
+            logger.info(f"🔄 MULTI-USERBOT: Switched to userbot {userbot_index+1}: {self.phone_number}")
+            return success
+        
+        return False
     
     def is_configured(self) -> bool:
         """Check if userbot is configured"""
@@ -188,9 +284,20 @@ class SimpleUserbot:
         return message
     
     async def send_product_to_user(self, user_id: int, product_data: dict, media_files: List[str] = None) -> Tuple[bool, str]:
-        """🔐 SECRET CHAT WITH WAIT-AND-RETRY - Using plugin but with proper timing"""
+        """🔐 MULTI-USERBOT SECRET CHAT - Automatic rotation to avoid rate limits"""
+        
+        # Get available userbot (not rate limited)
+        userbot_index, userbot_config = self.get_available_userbot()
+        if not userbot_config:
+            return False, "All userbots are rate limited"
+        
+        # Switch to available userbot if different from current
+        if userbot_index != self.current_userbot_index:
+            logger.info(f"🔄 MULTI-USERBOT: Switching from userbot {self.current_userbot_index+1} to {userbot_index+1}")
+            await self._switch_to_userbot(userbot_index)
+        
         if not self.is_connected:
-            return False, "Userbot not connected"
+            return False, "Selected userbot not connected"
         
         try:
             logger.info(f"🔐 SECRET CHAT RETRY: Starting encrypted delivery to user {user_id}")
@@ -427,39 +534,27 @@ class SimpleUserbot:
             except Exception as secret_error:
                 logger.error(f"❌ SECRET CHAT RETRY: Failed to create secret chat: {secret_error}")
                 
-                # EMERGENCY FALLBACK: If rate limited, use SECURE DIRECT MESSAGE
+                # RATE LIMIT HANDLING: Mark current userbot as rate limited and try next one
                 if "wait" in str(secret_error).lower() and "seconds" in str(secret_error).lower():
-                    logger.warning(f"⚠️ SECRET CHAT RETRY: Rate limited - using SECURE DIRECT MESSAGE fallback")
+                    # Extract wait time from error message
+                    import re
+                    wait_match = re.search(r'wait of (\d+) seconds', str(secret_error))
+                    wait_seconds = int(wait_match.group(1)) if wait_match else 3600  # Default 1 hour
                     
-                    try:
-                        # Send via secure direct message (still via userbot, not bot chat)
-                        message = self._create_product_message(product_data)
-                        secure_message = f"""🔐 **SECURE USERBOT DELIVERY** 🔐
-(Rate limit prevents secret chat - using secure direct message)
-
-{message}"""
+                    logger.warning(f"⚠️ MULTI-USERBOT: Current userbot rate limited for {wait_seconds}s")
+                    self.mark_userbot_rate_limited(self.current_userbot_index, wait_seconds)
+                    
+                    # Try next available userbot
+                    next_index, next_userbot = self.get_available_userbot()
+                    if next_userbot:
+                        logger.info(f"🔄 MULTI-USERBOT: Trying next userbot {next_index+1}")
+                        await self._switch_to_userbot(next_index)
                         
-                        await self.client.send_message(user_entity, secure_message)
-                        logger.info(f"✅ SECURE DM: Product details sent to @{username}")
-                        
-                        # Send media files directly
-                        if media_files and len(media_files) > 0:
-                            logger.info(f"📂 SECURE DM: Sending {len(media_files)} media files")
-                            
-                            for i, media_file in enumerate(media_files):
-                                try:
-                                    caption = f"📦 Product Media {i+1}/{len(media_files)} (Secure Userbot Delivery)"
-                                    await self.client.send_file(user_entity, media_file, caption=caption)
-                                    logger.info(f"✅ SECURE DM: Media file {i+1} sent: {os.path.basename(media_file)}")
-                                except Exception as media_error:
-                                    logger.error(f"❌ SECURE DM: Failed to send media {i+1}: {media_error}")
-                        
-                        logger.info(f"🎉 SECURE DM: Delivery completed for user {user_id}")
-                        return True, f"Product delivered via SECURE DIRECT MESSAGE to @{username} (rate limit bypass)"
-                        
-                    except Exception as dm_error:
-                        logger.error(f"❌ SECURE DM: Direct message fallback failed: {dm_error}")
-                        return False, f"All delivery methods failed: {dm_error}"
+                        # Retry delivery with new userbot
+                        return await self.send_product_to_user(user_id, product_data, media_files)
+                    else:
+                        logger.error(f"❌ MULTI-USERBOT: All userbots are rate limited!")
+                        return False, f"All userbots are rate limited. Please add more userbots or wait."
                 else:
                     return False, f"Failed to create secret chat: {secret_error}"
             
