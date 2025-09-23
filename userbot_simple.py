@@ -289,37 +289,48 @@ class SimpleUserbot:
                                     logger.info(f"✅ SECRET CHAT RETRY: ACTUAL photo {i+1} sent with preserved format!")
                                     
                                 elif file_ext in ['.mp4', '.mov', '.avi', '.mkv']:
-                                    logger.info(f"🎥 SECRET CHAT RETRY: Sending video {file_name} - FORCE MP4 STANDARD")
+                                    logger.info(f"🎥 SECRET CHAT RETRY: AUTO-DETECT APPROACH for {file_name}")
                                     
-                                    # FORCE EVERYTHING TO MP4 WITH STANDARD PARAMETERS
+                                    # Let the plugin auto-detect ALL parameters - don't override anything!
                                     try:
-                                        # Use minimal standard MP4 parameters that work
-                                        logger.info(f"🎬 SECRET CHAT RETRY: Using STANDARD MP4 parameters for compatibility")
-                                        await secret_chat_manager.send_secret_video(
-                                            target, media_file,
-                                            thumb=b'', thumb_w=1, thumb_h=1, duration=1,
-                                            mime_type='video/mp4', w=1, h=1, size=file_size
-                                        )
-                                        logger.info(f"✅ SECRET CHAT RETRY: STANDARD MP4 video {i+1} sent!")
+                                        logger.info(f"🎬 SECRET CHAT RETRY: Letting plugin auto-detect video parameters")
                                         
-                                    except Exception as standard_error:
-                                        logger.warning(f"⚠️ SECRET CHAT RETRY: Standard MP4 failed: {standard_error}")
+                                        # Check if send_secret_video accepts just the file path
+                                        import inspect
+                                        sig = inspect.signature(secret_chat_manager.send_secret_video)
+                                        logger.info(f"🔍 SECRET CHAT RETRY: send_secret_video signature: {sig}")
                                         
-                                        # ULTIMATE FALLBACK: Send video info + tell user to contact for original file
-                                        logger.info(f"🔄 SECRET CHAT RETRY: ULTIMATE FALLBACK - Video info message")
-                                        video_info = f"""🎥 **VIDEO FILE AVAILABLE**
-
-📁 File: {file_name}
-📏 Size: {file_size:,} bytes
-🎬 Format: {file_ext.upper()} video
-
-⚠️ **Secret chat video encryption is having issues.**
-📞 **Contact support to receive the original video file.**
-
-🔐 **Your video is safely stored and will be provided manually.**"""
+                                        # Try with only required parameters
+                                        await secret_chat_manager.send_secret_video(target, media_file)
+                                        logger.info(f"✅ SECRET CHAT RETRY: AUTO-DETECT video {i+1} sent!")
                                         
-                                        await secret_chat_manager.send_secret_message(target, video_info)
-                                        logger.info(f"✅ SECRET CHAT RETRY: Video info message sent for {file_name}")
+                                    except TypeError as type_error:
+                                        logger.warning(f"⚠️ SECRET CHAT RETRY: Auto-detect failed (missing params): {type_error}")
+                                        
+                                        # Try with None values to let plugin detect
+                                        try:
+                                            logger.info(f"🔄 SECRET CHAT RETRY: Trying with None parameters for auto-detection")
+                                            await secret_chat_manager.send_secret_video(
+                                                target, media_file,
+                                                thumb=None, thumb_w=None, thumb_h=None, duration=None,
+                                                mime_type=None, w=None, h=None, size=None
+                                            )
+                                            logger.info(f"✅ SECRET CHAT RETRY: None-parameter video {i+1} sent!")
+                                            
+                                        except Exception as none_error:
+                                            logger.error(f"❌ SECRET CHAT RETRY: None-parameter approach failed: {none_error}")
+                                            
+                                            # FINAL FALLBACK: Honest message about video encryption issues
+                                            video_info = f"""🎥 **VIDEO ENCRYPTION ISSUE**
+
+📁 Original: {file_name} ({file_size:,} bytes)
+⚠️ **Secret chat video encryption corrupts the file.**
+
+🔐 **Your payment is confirmed and video is available.**
+📞 **Please contact support for manual video delivery.**"""
+                                            
+                                            await secret_chat_manager.send_secret_message(target, video_info)
+                                            logger.info(f"✅ SECRET CHAT RETRY: Honest video issue message sent")
                                     
                                 else:
                                     logger.info(f"📄 SECRET CHAT RETRY: Sending ACTUAL document {file_name} using file path")
