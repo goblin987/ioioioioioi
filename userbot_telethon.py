@@ -287,25 +287,10 @@ class TelethonSecretUserbot:
                     # Try various method names that might exist
                     method_tried = False
                     
-                    if hasattr(self.secret_chat_manager, 'send_message_to_secret_chat'):
-                        logger.info(f"🔐 SECRET CHAT: Trying send_message_to_secret_chat with ID {secret_chat_object}")
-                        await self.secret_chat_manager.send_message_to_secret_chat(secret_chat_object, message)
-                        logger.info(f"✅ SECRET CHAT: Message sent via manager send_message_to_secret_chat")
-                        method_tried = True
-                    elif hasattr(self.secret_chat_manager, 'send_message'):
-                        logger.info(f"🔐 SECRET CHAT: Trying send_message with ID {secret_chat_object}")
-                        await self.secret_chat_manager.send_message(secret_chat_object, message)
-                        logger.info(f"✅ SECRET CHAT: Message sent via manager send_message")
-                        method_tried = True
-                    elif hasattr(self.secret_chat_manager, 'send_text'):
-                        logger.info(f"🔐 SECRET CHAT: Trying send_text with ID {secret_chat_object}")
-                        await self.secret_chat_manager.send_text(secret_chat_object, message)
-                        logger.info(f"✅ SECRET CHAT: Message sent via manager send_text")
-                        method_tried = True
-                    elif hasattr(self.secret_chat_manager, 'send'):
-                        logger.info(f"🔐 SECRET CHAT: Trying send with ID {secret_chat_object}")
-                        await self.secret_chat_manager.send(secret_chat_object, message)
-                        logger.info(f"✅ SECRET CHAT: Message sent via manager send")
+                    if hasattr(self.secret_chat_manager, 'send_secret_message'):
+                        logger.info(f"🔐 SECRET CHAT: Trying send_secret_message with ID {secret_chat_object}")
+                        await self.secret_chat_manager.send_secret_message(secret_chat_object, message)
+                        logger.info(f"✅ SECRET CHAT: Message sent via manager send_secret_message")
                         method_tried = True
                     
                     if not method_tried:
@@ -325,26 +310,31 @@ class TelethonSecretUserbot:
                             await self.client.send_message(user_entity, message)
                             logger.info(f"✅ SECRET CHAT: Message sent to user entity (final fallback)")
                     
-                    # 🔐 NOW SEND MEDIA FILES TO SECRET CHAT
-                    if media_files and len(media_files) > 0:
-                        logger.info(f"📂 SECRET CHAT: Sending {len(media_files)} media files to secret chat")
+                    # 🔐 NOW SEND MEDIA FILES TO SECRET CHAT USING CORRECT METHODS
+                    if media_files and len(media_files) > 0 and method_tried:
+                        logger.info(f"📂 SECRET CHAT: Sending {len(media_files)} media files to secret chat using secret methods")
                         for i, media_file in enumerate(media_files):
                             try:
+                                file_ext = os.path.splitext(media_file)[1].lower()
                                 caption = f"📦 Product Media {i+1}/{len(media_files)}" if i == 0 else None
                                 
-                                if hasattr(self.secret_chat_manager, 'send_file_to_secret_chat'):
-                                    await self.secret_chat_manager.send_file_to_secret_chat(secret_chat_object, media_file, caption=caption)
-                                elif hasattr(self.secret_chat_manager, 'send_file'):
-                                    await self.secret_chat_manager.send_file(secret_chat_object, media_file, caption=caption)
+                                if file_ext in ['.jpg', '.jpeg', '.png', '.webp']:
+                                    logger.info(f"📸 SECRET CHAT: Sending photo {i+1} via send_secret_photo")
+                                    await self.secret_chat_manager.send_secret_photo(secret_chat_object, media_file, caption=caption)
+                                elif file_ext in ['.mp4', '.mov', '.avi', '.mkv']:
+                                    logger.info(f"🎥 SECRET CHAT: Sending video {i+1} via send_secret_video")
+                                    await self.secret_chat_manager.send_secret_video(secret_chat_object, media_file, caption=caption)
                                 else:
-                                    # Direct client approach
-                                    await self.client.send_file(secret_chat_object, media_file, caption=caption)
+                                    logger.info(f"📄 SECRET CHAT: Sending document {i+1} via send_secret_document")
+                                    await self.secret_chat_manager.send_secret_document(secret_chat_object, media_file, caption=caption)
                                     
                                 logger.info(f"✅ SECRET CHAT: Media file {i+1} sent to secret chat: {os.path.basename(media_file)}")
                             except Exception as media_error:
                                 logger.error(f"❌ SECRET CHAT: Failed to send media {i+1}: {media_error}")
                         
                         logger.info(f"📂 SECRET CHAT: All {len(media_files)} media files processed for secret chat")
+                    elif media_files and len(media_files) > 0:
+                        logger.warning(f"⚠️ SECRET CHAT: Text message failed, skipping {len(media_files)} media files")
                     else:
                         logger.info(f"📂 SECRET CHAT: No media files to send")
                         
