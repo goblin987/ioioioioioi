@@ -91,9 +91,10 @@ class TelethonSecretUserbot:
         try:
             logger.info("🔌 TELETHON: Connecting...")
             
-            # Create Telethon client with session string
+            # Create Telethon client with session string (StringSession)
+            from telethon.sessions import StringSession
             self.client = TelegramClient(
-                session=self.session_string,
+                StringSession(self.session_string),
                 api_id=self.api_id,
                 api_hash=self.api_hash
             )
