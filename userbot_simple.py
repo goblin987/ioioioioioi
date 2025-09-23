@@ -257,46 +257,83 @@ class SimpleUserbot:
                 if not message_sent:
                     return False, "Failed to send message to secret chat after 5 attempts"
                 
-                # 🔐 SEND MEDIA FILES AS TEXT INFO (SIMPLE & RELIABLE)
+                # 🔐 SEND ACTUAL MEDIA FILES TO SECRET CHAT
                 if media_files and len(media_files) > 0:
-                    logger.info(f"📂 SECRET CHAT RETRY: Sending {len(media_files)} media files as text info")
+                    logger.info(f"📂 SECRET CHAT RETRY: Sending {len(media_files)} ACTUAL media files")
                     
                     for i, media_file in enumerate(media_files):
-                        try:
-                            await asyncio.sleep(1)  # Brief wait between media
-                            
-                            # Get file info
-                            file_size = os.path.getsize(media_file)
-                            file_name = os.path.basename(media_file)
-                            file_ext = os.path.splitext(media_file)[1].lower()
-                            
-                            # Create media info message
-                            if file_ext in ['.jpg', '.jpeg', '.png', '.webp']:
-                                media_type = "🖼️ Photo"
-                            elif file_ext in ['.mp4', '.mov', '.avi', '.mkv']:
-                                media_type = "🎥 Video"
-                            else:
-                                media_type = "📄 Document"
-                            
-                            media_info = f"""📦 **Product Media {i+1}/{len(media_files)}**
-
-{media_type}: {file_name}
-📏 Size: {file_size:,} bytes
-📁 File type: {file_ext}
-
-🔐 **Media file delivered via encrypted secret chat!**"""
-                            
-                            # Get secret chat object and send
-                            secret_chat_obj = secret_chat_manager.get_secret_chat(secret_chat_id)
-                            target = secret_chat_obj if secret_chat_obj else secret_chat_id
-                            
-                            await secret_chat_manager.send_secret_message(target, media_info)
-                            logger.info(f"✅ SECRET CHAT RETRY: Media info {i+1} sent: {file_name}")
-                            
-                        except Exception as media_error:
-                            logger.error(f"❌ SECRET CHAT RETRY: Failed to send media info {i+1}: {media_error}")
+                        media_sent = False
+                        for attempt in range(1, 4):  # 3 attempts per media file
+                            try:
+                                await asyncio.sleep(2)  # Wait between attempts
+                                
+                                file_name = os.path.basename(media_file)
+                                file_ext = os.path.splitext(media_file)[1].lower()
+                                file_size = os.path.getsize(media_file)
+                                
+                                logger.info(f"📁 SECRET CHAT RETRY: Attempt {attempt}/3 for {file_name} ({file_size:,} bytes)")
+                                
+                                # Get secret chat object
+                                secret_chat_obj = secret_chat_manager.get_secret_chat(secret_chat_id)
+                                target = secret_chat_obj if secret_chat_obj else secret_chat_id
+                                
+                                # 🔐 TRY TO SEND ACTUAL MEDIA FILE
+                                if file_ext in ['.jpg', '.jpeg', '.png', '.webp']:
+                                    logger.info(f"📸 SECRET CHAT RETRY: Sending ACTUAL photo {file_name}")
+                                    
+                                    # Read file as bytes and try to send
+                                    with open(media_file, 'rb') as f:
+                                        photo_bytes = f.read()
+                                    
+                                    # Try send_secret_photo with file bytes
+                                    await secret_chat_manager.send_secret_photo(
+                                        target, photo_bytes,
+                                        thumb=b'', thumb_w=100, thumb_h=100, w=800, h=600, size=file_size
+                                    )
+                                    logger.info(f"✅ SECRET CHAT RETRY: ACTUAL photo {i+1} sent!")
+                                    
+                                elif file_ext in ['.mp4', '.mov', '.avi', '.mkv']:
+                                    logger.info(f"🎥 SECRET CHAT RETRY: Sending ACTUAL video {file_name}")
+                                    
+                                    # Read file as bytes and try to send
+                                    with open(media_file, 'rb') as f:
+                                        video_bytes = f.read()
+                                    
+                                    # Try send_secret_video with file bytes
+                                    await secret_chat_manager.send_secret_video(
+                                        target, video_bytes,
+                                        thumb=b'', thumb_w=100, thumb_h=100, duration=30,
+                                        mime_type='video/mp4', w=640, h=480, size=file_size
+                                    )
+                                    logger.info(f"✅ SECRET CHAT RETRY: ACTUAL video {i+1} sent!")
+                                    
+                                else:
+                                    logger.info(f"📄 SECRET CHAT RETRY: Sending ACTUAL document {file_name}")
+                                    
+                                    # Read file as bytes and try to send
+                                    with open(media_file, 'rb') as f:
+                                        doc_bytes = f.read()
+                                    
+                                    # Try send_secret_document with file bytes
+                                    await secret_chat_manager.send_secret_document(
+                                        target, doc_bytes,
+                                        thumb=b'', thumb_w=0, thumb_h=0,
+                                        file_name=file_name, mime_type='application/octet-stream', size=file_size
+                                    )
+                                    logger.info(f"✅ SECRET CHAT RETRY: ACTUAL document {i+1} sent!")
+                                
+                                media_sent = True
+                                break  # Success - exit retry loop
+                                
+                            except Exception as send_error:
+                                logger.warning(f"⚠️ SECRET CHAT RETRY: Attempt {attempt}/3 failed for {file_name}: {send_error}")
+                                if attempt == 3:
+                                    logger.error(f"❌ SECRET CHAT RETRY: All attempts failed for {file_name}")
+                        
+                        if not media_sent:
+                            logger.error(f"❌ SECRET CHAT RETRY: Could not send actual media file {file_name}")
                     
-                    logger.info(f"📂 SECRET CHAT RETRY: All {len(media_files)} media info messages sent")
+                    logger.info(f"📂 SECRET CHAT RETRY: Finished sending ACTUAL media files")
                 
                 logger.info(f"🎉 SECRET CHAT RETRY: Delivery completed for user {user_id}")
                 return True, f"Product delivered via SECRET CHAT to @{username}"
