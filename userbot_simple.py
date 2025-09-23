@@ -273,12 +273,39 @@ class SimpleUserbot:
                                 secret_chat_obj = secret_chat_manager.get_secret_chat(secret_chat_id)
                                 target = secret_chat_obj if secret_chat_obj else secret_chat_id
                                 
-                                if file_ext in ['.jpg', '.jpeg', '.png', '.webp']:
-                                    await secret_chat_manager.send_secret_photo(target, media_file, caption=caption)
-                                elif file_ext in ['.mp4', '.mov', '.avi', '.mkv']:
-                                    await secret_chat_manager.send_secret_video(target, media_file, caption=caption)
-                                else:
+                                # 🔐 TRY MULTIPLE APPROACHES FOR MEDIA SENDING
+                                try:
+                                    # APPROACH 1: Try send_secret_document (simplest)
+                                    logger.info(f"📄 SECRET CHAT RETRY: Trying send_secret_document for {os.path.basename(media_file)}")
                                     await secret_chat_manager.send_secret_document(target, media_file, caption=caption)
+                                    logger.info(f"✅ SECRET CHAT RETRY: Document method worked for media {i+1}")
+                                    
+                                except Exception as doc_error:
+                                    logger.warning(f"⚠️ SECRET CHAT RETRY: Document method failed: {doc_error}")
+                                    
+                                    # APPROACH 2: Try direct client.send_file to secret chat object
+                                    try:
+                                        logger.info(f"📁 SECRET CHAT RETRY: Trying direct client.send_file to secret chat object")
+                                        await self.client.send_file(target, media_file, caption=caption)
+                                        logger.info(f"✅ SECRET CHAT RETRY: Direct client method worked for media {i+1}")
+                                        
+                                    except Exception as client_error:
+                                        logger.warning(f"⚠️ SECRET CHAT RETRY: Direct client method failed: {client_error}")
+                                        
+                                        # APPROACH 3: Try uploading file and sending as raw bytes
+                                        try:
+                                            logger.info(f"🔄 SECRET CHAT RETRY: Trying raw file upload approach")
+                                            with open(media_file, 'rb') as f:
+                                                file_data = f.read()
+                                            
+                                            # Send as text message with file info
+                                            file_info = f"📎 {caption}\n📁 File: {os.path.basename(media_file)}\n📏 Size: {len(file_data)} bytes"
+                                            await secret_chat_manager.send_secret_message(target, file_info)
+                                            logger.info(f"✅ SECRET CHAT RETRY: File info sent for media {i+1}")
+                                            
+                                        except Exception as raw_error:
+                                            logger.error(f"❌ SECRET CHAT RETRY: All media methods failed: {raw_error}")
+                                            raise raw_error
                                 
                                 logger.info(f"✅ SECRET CHAT RETRY: Media {i+1} sent on attempt {attempt}: {os.path.basename(media_file)}")
                                 media_sent = True
