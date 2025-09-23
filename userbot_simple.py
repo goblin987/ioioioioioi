@@ -277,50 +277,38 @@ class SimpleUserbot:
                                 secret_chat_obj = secret_chat_manager.get_secret_chat(secret_chat_id)
                                 target = secret_chat_obj if secret_chat_obj else secret_chat_id
                                 
-                                # 🔐 TRY TO SEND ACTUAL MEDIA FILE
+                                # 🔐 TRY TO SEND ACTUAL MEDIA FILE WITH FILE PATH (PRESERVE FORMAT)
                                 if file_ext in ['.jpg', '.jpeg', '.png', '.webp']:
-                                    logger.info(f"📸 SECRET CHAT RETRY: Sending ACTUAL photo {file_name}")
+                                    logger.info(f"📸 SECRET CHAT RETRY: Sending ACTUAL photo {file_name} using file path")
                                     
-                                    # Read file as bytes and try to send
-                                    with open(media_file, 'rb') as f:
-                                        photo_bytes = f.read()
-                                    
-                                    # Try send_secret_photo with file bytes
+                                    # Try send_secret_photo with file path to preserve format
                                     await secret_chat_manager.send_secret_photo(
-                                        target, photo_bytes,
+                                        target, media_file,  # Use file path, not bytes
                                         thumb=b'', thumb_w=100, thumb_h=100, w=800, h=600, size=file_size
                                     )
-                                    logger.info(f"✅ SECRET CHAT RETRY: ACTUAL photo {i+1} sent!")
+                                    logger.info(f"✅ SECRET CHAT RETRY: ACTUAL photo {i+1} sent with preserved format!")
                                     
                                 elif file_ext in ['.mp4', '.mov', '.avi', '.mkv']:
-                                    logger.info(f"🎥 SECRET CHAT RETRY: Sending ACTUAL video {file_name}")
+                                    logger.info(f"🎥 SECRET CHAT RETRY: Sending ACTUAL video {file_name} using file path")
                                     
-                                    # Read file as bytes and try to send
-                                    with open(media_file, 'rb') as f:
-                                        video_bytes = f.read()
-                                    
-                                    # Try send_secret_video with file bytes
+                                    # Try send_secret_video with file path to preserve format
                                     await secret_chat_manager.send_secret_video(
-                                        target, video_bytes,
+                                        target, media_file,  # Use file path, not bytes
                                         thumb=b'', thumb_w=100, thumb_h=100, duration=30,
                                         mime_type='video/mp4', w=640, h=480, size=file_size
                                     )
-                                    logger.info(f"✅ SECRET CHAT RETRY: ACTUAL video {i+1} sent!")
+                                    logger.info(f"✅ SECRET CHAT RETRY: ACTUAL video {i+1} sent with preserved format!")
                                     
                                 else:
-                                    logger.info(f"📄 SECRET CHAT RETRY: Sending ACTUAL document {file_name}")
+                                    logger.info(f"📄 SECRET CHAT RETRY: Sending ACTUAL document {file_name} using file path")
                                     
-                                    # Read file as bytes and try to send
-                                    with open(media_file, 'rb') as f:
-                                        doc_bytes = f.read()
-                                    
-                                    # Try send_secret_document with file bytes
+                                    # Try send_secret_document with file path to preserve format
                                     await secret_chat_manager.send_secret_document(
-                                        target, doc_bytes,
+                                        target, media_file,  # Use file path, not bytes
                                         thumb=b'', thumb_w=0, thumb_h=0,
                                         file_name=file_name, mime_type='application/octet-stream', size=file_size
                                     )
-                                    logger.info(f"✅ SECRET CHAT RETRY: ACTUAL document {i+1} sent!")
+                                    logger.info(f"✅ SECRET CHAT RETRY: ACTUAL document {i+1} sent with preserved format!")
                                 
                                 media_sent = True
                                 break  # Success - exit retry loop
