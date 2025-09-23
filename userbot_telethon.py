@@ -250,12 +250,11 @@ class TelethonSecretUserbot:
                 logger.info(f"🔐 SECRET CHAT: Creating encrypted secret chat with user {user_id}")
                 secret_chat_result = await self.secret_chat_manager.start_secret_chat(user_entity)
                 logger.info(f"✅ SECRET CHAT: Encrypted secret chat created with @{username}, result: {secret_chat_result}")
+                logger.info(f"🔍 SECRET CHAT: Result type: {type(secret_chat_result)}")
                 
-                # 🔐 SECRET CHAT APPROACH - Use SecretChatManager for sending
-                # The telethon-secret-chat plugin handles the peer management internally
-                # We should use the manager's methods instead of direct client calls
-                logger.info(f"🔐 SECRET CHAT: Secret chat created with ID: {secret_chat_result}")
-                logger.info(f"🔄 SECRET CHAT: Will use SecretChatManager methods for sending")
+                # The result should be the actual secret chat object, not an ID
+                secret_chat_object = secret_chat_result
+                logger.info(f"🔐 SECRET CHAT: Using returned object as secret chat: {secret_chat_object}")
                 
             except Exception as e:
                 logger.error(f"❌ SECRET CHAT: Failed to create secret chat with @{username}: {e}")
@@ -264,41 +263,40 @@ class TelethonSecretUserbot:
             # Create product message
             message = self._create_product_message(product_data)
             
-            # 🔐 SEND VIA SECRET CHAT MANAGER - Use plugin's built-in methods
+            # 🔐 SEND VIA SECRET CHAT OBJECT DIRECTLY
             try:
-                # Check if the SecretChatManager has the methods we need
-                if hasattr(self.secret_chat_manager, 'send_message_to_secret_chat'):
-                    # Use the plugin's specific secret chat sending method
-                    logger.info(f"🔐 SECRET CHAT: Using plugin's send_message_to_secret_chat method")
-                    await self.secret_chat_manager.send_message_to_secret_chat(secret_chat_result, message)
-                    logger.info(f"✅ SECRET CHAT: Message sent via plugin method")
+                # Check if the returned object has send methods
+                if hasattr(secret_chat_object, 'send_message'):
+                    logger.info(f"📝 SECRET CHAT: Using secret_chat_object.send_message() method")
+                    await secret_chat_object.send_message(message)
+                    logger.info(f"✅ SECRET CHAT: Message sent via secret chat object method")
                     
-                elif hasattr(self.secret_chat_manager, 'send_message'):
-                    # Try the plugin's general send_message method
-                    logger.info(f"🔐 SECRET CHAT: Using plugin's send_message method")
-                    await self.secret_chat_manager.send_message(secret_chat_result, message)
-                    logger.info(f"✅ SECRET CHAT: Message sent via plugin method")
+                elif hasattr(secret_chat_object, 'send'):
+                    logger.info(f"📝 SECRET CHAT: Using secret_chat_object.send() method")
+                    await secret_chat_object.send(message)
+                    logger.info(f"✅ SECRET CHAT: Message sent via secret chat send method")
                     
-                else:
-                    # Fallback: Try to get the secret chat object and send through it
-                    logger.info(f"🔄 SECRET CHAT: Trying to get secret chat object for sending")
+                elif secret_chat_object and str(secret_chat_object).isdigit():
+                    # It's an ID, try to use it with the manager
+                    logger.info(f"🔢 SECRET CHAT: Object is an ID ({secret_chat_object}), trying manager methods")
                     
-                    # Check if we can get the secret chat object
-                    secret_chat_obj = None
-                    if hasattr(self.secret_chat_manager, 'get_secret_chat'):
-                        secret_chat_obj = self.secret_chat_manager.get_secret_chat(secret_chat_result)
-                        logger.info(f"🔍 SECRET CHAT: Got secret chat object: {type(secret_chat_obj)}")
-                    
-                    if secret_chat_obj and hasattr(secret_chat_obj, 'send_message'):
-                        # Send via the secret chat object
-                        logger.info(f"📝 SECRET CHAT: Sending via secret chat object")
-                        await secret_chat_obj.send_message(message)
-                        logger.info(f"✅ SECRET CHAT: Message sent via secret chat object")
+                    if hasattr(self.secret_chat_manager, 'send_message_to_secret_chat'):
+                        await self.secret_chat_manager.send_message_to_secret_chat(secret_chat_object, message)
+                        logger.info(f"✅ SECRET CHAT: Message sent via manager send_message_to_secret_chat")
+                    elif hasattr(self.secret_chat_manager, 'send_message'):
+                        await self.secret_chat_manager.send_message(secret_chat_object, message)
+                        logger.info(f"✅ SECRET CHAT: Message sent via manager send_message")
                     else:
-                        # Final fallback: send to user entity (regular DM)
-                        logger.warning(f"⚠️ SECRET CHAT: No plugin methods available, sending to user entity as fallback")
+                        logger.warning(f"⚠️ SECRET CHAT: No manager methods found, using fallback")
                         await self.client.send_message(user_entity, message)
                         logger.info(f"✅ SECRET CHAT: Message sent to user entity (fallback)")
+                        
+                else:
+                    # Final fallback: send to user entity (regular DM)
+                    logger.warning(f"⚠️ SECRET CHAT: Unknown secret chat object type, using fallback")
+                    logger.info(f"🔍 SECRET CHAT: Object methods: {[method for method in dir(secret_chat_object) if not method.startswith('_')]}")
+                    await self.client.send_message(user_entity, message)
+                    logger.info(f"✅ SECRET CHAT: Message sent to user entity (fallback)")
                 
                 # For now, skip media files until we get text messages working
                 if media_files and len(media_files) > 0:
