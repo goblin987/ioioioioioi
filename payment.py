@@ -1518,20 +1518,25 @@ async def _attempt_userbot_delivery_first(user_id: int, basket_snapshot: list, c
                 'price': f"{total_price:.2f}"
             }
         
-        # Get media files
+        # Get media files - check database directly for all products
         media_files = []
         for item in basket_snapshot:
-            if item.get('has_media'):
-                from utils import get_db_connection
-                conn = get_db_connection()
-                c = conn.cursor()
-                c.execute("SELECT file_path FROM product_media WHERE product_id = ?", (item['product_id'],))
-                media_data = c.fetchall()
-                conn.close()
-                
-                for media_row in media_data:
-                    if os.path.exists(media_row[0]):
-                        media_files.append(media_row[0])
+            from utils import get_db_connection
+            conn = get_db_connection()
+            c = conn.cursor()
+            c.execute("SELECT file_path FROM product_media WHERE product_id = ?", (item['product_id'],))
+            media_data = c.fetchall()
+            conn.close()
+            
+            logger.info(f"🔍 USERBOT FIRST: Found {len(media_data)} media files for product {item['product_id']}")
+            for media_row in media_data:
+                if os.path.exists(media_row[0]):
+                    media_files.append(media_row[0])
+                    logger.info(f"📁 USERBOT FIRST: Added media file: {media_row[0]}")
+                else:
+                    logger.warning(f"⚠️ USERBOT FIRST: Media file not found: {media_row[0]}")
+        
+        logger.info(f"📂 USERBOT FIRST: Total media files to send: {len(media_files)}")
         
         # Send via userbot secret chat
         success, message = await userbot.send_product_to_user(user_id, product_data, media_files)
@@ -1581,21 +1586,25 @@ async def _trigger_userbot_delivery(user_id: int, basket_snapshot: list, context
                 'price': f"{total_price:.2f}"
             }
         
-        # Get media files
+        # Get media files - check database directly for all products  
         media_files = []
         for item in basket_snapshot:
-            if item.get('has_media'):
-                # Get media files for this product
-                from utils import get_db_connection
-                conn = get_db_connection()
-                c = conn.cursor()
-                c.execute("SELECT file_path FROM product_media WHERE product_id = ?", (item['product_id'],))
-                media_data = c.fetchall()
-                conn.close()
-                
-                for media_row in media_data:
-                    if os.path.exists(media_row[0]):
-                        media_files.append(media_row[0])
+            from utils import get_db_connection
+            conn = get_db_connection()
+            c = conn.cursor()
+            c.execute("SELECT file_path FROM product_media WHERE product_id = ?", (item['product_id'],))
+            media_data = c.fetchall()
+            conn.close()
+            
+            logger.info(f"🔍 USERBOT: Found {len(media_data)} media files for product {item['product_id']}")
+            for media_row in media_data:
+                if os.path.exists(media_row[0]):
+                    media_files.append(media_row[0])
+                    logger.info(f"📁 USERBOT: Added media file: {media_row[0]}")
+                else:
+                    logger.warning(f"⚠️ USERBOT: Media file not found: {media_row[0]}")
+        
+        logger.info(f"📂 USERBOT: Total media files to send: {len(media_files)}")
         
         # Send via userbot (this is the core workflow function)
         success, message = await userbot.send_product_to_user(user_id, product_data, media_files)

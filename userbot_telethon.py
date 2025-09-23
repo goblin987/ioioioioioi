@@ -251,22 +251,26 @@ class TelethonSecretUserbot:
                 secret_chat_result = await self.secret_chat_manager.start_secret_chat(user_entity)
                 logger.info(f"✅ SECRET CHAT: Encrypted secret chat created with @{username}, result: {secret_chat_result}")
                 
-                # 🔐 RESOLVE SECRET CHAT ENTITY - Try to get the actual secret chat object
+                # 🔐 RESOLVE SECRET CHAT ENTITY - Use the secret chat ID directly
                 try:
-                    # Method 1: Try to get secret chat from manager
-                    secret_chat_entity = None
-                    if hasattr(self.secret_chat_manager, 'get_secret_chat'):
-                        secret_chat_entity = self.secret_chat_manager.get_secret_chat(secret_chat_result)
-                        logger.info(f"🔍 SECRET CHAT: Got secret chat object from manager: {secret_chat_entity}")
+                    # The secret chat ID should be used directly for sending messages
+                    # Create a proper secret chat entity from the ID
+                    from telethon.tl.types import InputPeerChat
                     
-                    # Method 2: If that doesn't work, try using the original user entity
-                    if not secret_chat_entity:
-                        logger.info(f"🔍 SECRET CHAT: Using original user entity for secret chat communication")
+                    # For secret chats, we need to use the secret chat ID directly
+                    # Negative IDs typically indicate secret chats
+                    if secret_chat_result < 0:
+                        # This is a secret chat ID, use it directly
+                        secret_chat_entity = secret_chat_result
+                        logger.info(f"🔐 SECRET CHAT: Using secret chat ID directly: {secret_chat_result}")
+                    else:
+                        # Fallback to user entity if not a secret chat
+                        logger.warning(f"⚠️ SECRET CHAT: Unexpected positive chat ID {secret_chat_result}, using user entity")
                         secret_chat_entity = user_entity
                     
                 except Exception as entity_error:
-                    logger.error(f"❌ SECRET CHAT: Error resolving secret chat entity: {entity_error}")
-                    logger.info(f"🔄 SECRET CHAT: Fallback to using original user entity")
+                    logger.error(f"❌ SECRET CHAT: Error creating secret chat entity: {entity_error}")
+                    logger.info(f"🔄 SECRET CHAT: Fallback to using user entity")
                     secret_chat_entity = user_entity
                 
             except Exception as e:
