@@ -196,9 +196,11 @@ async def handle_userbot_verification_code_message(update: Update, context: Cont
                     f"Authenticated as: {me.first_name}\n"
                     f"Phone: {me.phone}\n"
                     f"Status: {connect_message}\n\n"
-                    "🔐 **TELETHON SECRET CHAT USERBOT READY!**\n"
-                    "• Products delivered via ENCRYPTED SECRET CHATS\n"
-                    "• Maximum security and privacy\n"
+                    "🔐 **REAL SECRET ENCRYPTED CHAT USERBOT READY!**\n"
+                    "• Products delivered ONLY via REAL ENCRYPTED SECRET CHATS\n"
+                    "• End-to-end encryption with telethon-secret-chat plugin\n"
+                    "• Self-destructing messages, no server storage\n"
+                    "• Maximum security and complete privacy\n"
                     "• Automatic delivery after payment\n"
                     "• No manual intervention needed",
                     parse_mode=None,
@@ -325,9 +327,11 @@ async def handle_userbot_2fa_password_message(update: Update, context: ContextTy
                     f"Authenticated as: {me.first_name}\n"
                     f"Phone: {me.phone}\n"
                     f"Status: {connect_message}\n\n"
-                    "🔐 **TELETHON SECRET CHAT USERBOT READY!**\n"
-                    "• Products delivered via ENCRYPTED SECRET CHATS\n"
-                    "• Maximum security and privacy\n"
+                    "🔐 **REAL SECRET ENCRYPTED CHAT USERBOT READY!**\n"
+                    "• Products delivered ONLY via REAL ENCRYPTED SECRET CHATS\n"
+                    "• End-to-end encryption with telethon-secret-chat plugin\n"
+                    "• Self-destructing messages, no server storage\n"
+                    "• Maximum security and complete privacy\n"
                     "• Automatic delivery after payment\n"
                     "• No manual intervention needed",
                     parse_mode=None,

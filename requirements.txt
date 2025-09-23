@@ -5,4 +5,5 @@ nest-asyncio>=1.5.0
 pytz
 pyrogram>=2.0.0
 Telethon>=1.34.0
+telethon-secret-chat
 cryptography>=3.4.8
